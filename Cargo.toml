@@ -1,0 +1,21 @@
+[package]
+name = "whiteboard-pal"
+version = "0.1.0"
+authors = ["Sebastien La Duca <sladuca777@gmail.com>"]
+edition = "2018"
+build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+opencv = {version = "0.49" }
+crossbeam = "0.8"
+anyhow = "1"
+cty = "0.2"
+
+[build-dependencies]
+cc = "1.0"
+metadeps = "1.1"
+
+[package.metadata.pkg-config]
+opencv4 = "1"
