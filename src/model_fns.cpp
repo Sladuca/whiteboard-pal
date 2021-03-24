@@ -1,5 +1,5 @@
 #include <memory>
-
+#include<opencv2/opencv.hpp>
 typedef struct FingerOutput {
     int x;
     int y;
@@ -30,4 +30,9 @@ GestureOutput gesture_detection(void *frame, int idx) {
         false,
         idx
     };
+}
+
+size_t write_output(void *frame, int fd, size_t size) {
+    cv::Mat *mat = static_cast<cv::Mat*>(frame);
+    return (size_t) write(fd, frame->data, size);
 }
