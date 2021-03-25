@@ -1,15 +1,5 @@
-#include <memory>
+#include <whiteboard_pal/main.hpp>
 
-typedef struct FingerOutput {
-    int x;
-    int y;
-    int idx;
-} FingerOutput;
-
-typedef struct GestureOutput {
-    bool gesture;
-    int idx;
-} GestureOutput;
 
 extern "C" {
     FingerOutput finger_tracking(void *frame, int idx);

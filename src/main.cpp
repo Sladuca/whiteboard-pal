@@ -1,0 +1,176 @@
+#include <whiteboard_pal/main.hpp>
+#include <iostream>
+#include <stdio.h>
+#include <sys/ioctl.h>
+#include <boost/fiber/all.hpp>
+#include <linux/videodev2.h>
+
+using namespace cv;
+using namespace std;
+
+#define FRAME_BUF_SIZE 30
+#define VID_WIDTH  640
+#define VID_HEIGHT 480
+#define VIDEO_OUT "/dev/video6"
+
+typedef struct frame_with_idx {
+    Mat frame;
+    int i;
+} frame_with_idx_t;
+
+typedef struct loopback_info {
+    size_t width;
+    size_t height;
+    size_t framesize;
+    int fd;
+} loopback_info_t;
+
+typedef boost::fibers::buffered_channel<frame_with_idx_t> frame_chan_t;
+typedef boost::fibers::buffered_channel<GestureOutput> gesture_chan_t;
+typedef boost::fibers::buffered_channel<FingerOutput> finger_chan_t;
+
+int input(frame_chan_t &to_finger, VideoCapture cap) {
+
+    Mat frame;
+    while (true) {
+        cap.read(frame);
+        if (frame.empty()) {
+            cerr << "ERROR: failed to read frame!";
+            return -1;
+        }
+        int i = cap.get(CAP_PROP_POS_FRAMES);
+        // Mat frame2 = frame
+        to_finger.push(frame_with_idx_t { frame, i });
+        // to_gesture.push(frame_chan_t { frame2, i});
+    }
+    to_finger.close();
+    // to_gesture.close();
+    return 0;
+}
+
+int configure_loopback(loopback_info_t *lb, size_t width, size_t height) {
+    int fd = open(VIDEO_OUT, O_RDWR);
+    if(fd < 0) {
+        cerr << "ERROR: failed to open output device!\n" << strerror(errno);
+        return -2;
+    }
+
+    // CONFIGURE VIDEO FORMAT
+
+    struct v4l2_format vid_format;
+    memset(&vid_format, 0, sizeof(vid_format));
+    vid_format.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+
+    if (ioctl(fd, VIDIOC_G_FMT, &vid_format) < 0) {
+        cerr << "ERROR: failed to get default loopback video format!\n" << strerror(errno);
+        return -1;
+    }
+
+    cout << "output dim: (" << width << ", " << height << ")\n";
+    cout << "output colorspace: " << vid_format.fmt.pix.colorspace << "\n";
+
+    // YUYV encodes every 2 pixels with a 4 byte "YUYV", where each pixel has its own Y (luma)
+    // but the two pixels share the same U and V (chroma) values.
+    size_t num_pixels = width * height;
+    // size_t framesize = ((num_pixels + 1) / 2) * 4;
+    size_t framesize = num_pixels * 1.5;
+    // size_t framesize = num_pixels * 3;
+    vid_format.fmt.pix.width = width;
+    vid_format.fmt.pix.height = height;
+    vid_format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;
+    vid_format.fmt.pix.sizeimage = framesize;
+    vid_format.fmt.pix.field = V4L2_FIELD_NONE;
+    vid_format.fmt.pix.xfer_func = V4L2_XFER_FUNC_709;
+
+    if (ioctl(fd, VIDIOC_S_FMT, &vid_format) < 0) {
+        cerr << "ERROR: failed to set loopback video format!\n" << strerror(errno);
+        return -1;
+    }
+
+    *lb = loopback_info_t {
+        width,
+        height,
+        framesize,
+        fd
+    };
+    return 0;
+}
+
+int output(frame_chan_t &to_finger, size_t width, size_t height) {
+    loopback_info_t lb;
+    int res = configure_loopback(&lb, width, height);
+    if (res < 0) {
+        return res;
+    }
+
+    frame_with_idx_t frame;
+    while (boost::fibers::channel_op_status::success == to_finger.pop(frame)) {
+        // convert back to yuyv
+        cvtColor(frame.frame, frame.frame, COLOR_BGR2YUV_I420);
+        size_t bytes_written = write(lb.fd, frame.frame.data, lb.framesize);
+        if (bytes_written < 0) {
+            cerr << "ERROR: failed to write frame to loopback device!";
+            close(lb.fd);
+            return -2;
+        }
+    }
+
+    close(lb.fd);
+    return 0;
+}
+
+void print_fourcc(int fourcc) {
+    string fourcc_str = format("%c%c%c%c", fourcc & 255, (fourcc >> 8) & 255, (fourcc >> 16) & 255, (fourcc >> 24) & 255);
+    cout << "CAP_PROP_FOURCC: " << fourcc_str << endl;
+}
+
+void print_mat_type(int type) {
+  string r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  cout << "CAP_PROP_FORMAT: " << r << "\n";
+}
+
+
+
+int main() {
+    frame_chan_t to_finger { 2 };
+    // frame_chan_t to_gesture { FRAME_BUF_SIZE };
+
+    VideoCapture cap(0, CAP_V4L);
+    
+    if (not cap.isOpened()) {
+        cerr << "ERROR: failed to open camera!\n";
+        return -2;
+    }
+
+    int fourcc = cap.get(CAP_PROP_FOURCC);
+    int format = cap.get(CAP_PROP_FORMAT);
+    print_fourcc(fourcc);
+    print_mat_type(format);
+
+    size_t width = cap.get(CAP_PROP_FRAME_WIDTH);
+    size_t height = cap.get(CAP_PROP_FRAME_HEIGHT);
+
+    boost::fibers::fiber input_fiber( bind( input, ref(to_finger), ref(cap)));
+    boost::fibers::fiber output_fiber( bind( output, ref(to_finger), width, height));
+    
+    output_fiber.join();
+    input_fiber.join();
+}
