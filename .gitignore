@@ -1,1 +1,7 @@
 /target
+Makefile
+CMakeCache.txt
+cmake_install.cmake
+.vscode
+/CMakeFiles
+whiteboard_pal
