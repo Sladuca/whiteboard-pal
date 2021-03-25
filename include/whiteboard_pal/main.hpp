@@ -20,3 +20,6 @@ typedef struct GestureOutput {
     bool gesture;
     int idx;
 } GestureOutput;
+
+GestureOutput gesture_detection(Mat frame, int idx);
+FingerOutput finger_tracking(Mat frame, int idx);
