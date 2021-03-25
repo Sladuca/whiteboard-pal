@@ -5,9 +5,6 @@
 #include <boost/fiber/all.hpp>
 #include <linux/videodev2.h>
 
-using namespace cv;
-using namespace std;
-
 #define FRAME_BUF_SIZE 30
 #define VID_WIDTH  640
 #define VID_HEIGHT 480
