@@ -22,11 +22,16 @@ typedef struct loopback_info {
     int fd;
 } loopback_info_t;
 
-typedef boost::fibers::buffered_channel<frame_with_idx_t> frame_chan_t;
-typedef boost::fibers::buffered_channel<GestureOutput> gesture_chan_t;
-typedef boost::fibers::buffered_channel<FingerOutput> finger_chan_t;
+typedef struct finger_output_with_frame {
+    Mat frame;
+    finger_output_t finger;
+} finger_output_with_frame_t;
 
-int input(frame_chan_t &to_finger, VideoCapture cap) {
+typedef boost::fibers::buffered_channel<frame_with_idx_t> frame_chan_t;
+typedef boost::fibers::buffered_channel<gesture_output_t> gesture_chan_t;
+typedef boost::fibers::buffered_channel<finger_output_with_frame_t> finger_chan_t;
+
+int input(frame_chan_t &to_finger, frame_chan_t &to_gesture, VideoCapture cap) {
 
     Mat frame;
     while (true) {
@@ -36,9 +41,9 @@ int input(frame_chan_t &to_finger, VideoCapture cap) {
             return -1;
         }
         int i = cap.get(CAP_PROP_POS_FRAMES);
-        // Mat frame2 = frame
+        Mat frame2 = frame;
         to_finger.push(frame_with_idx_t { frame, i });
-        // to_gesture.push(frame_chan_t { frame2, i});
+        to_gesture.push(frame_with_idx_t { frame2, i});
     }
     to_finger.close();
     // to_gesture.close();
@@ -93,18 +98,34 @@ int configure_loopback(loopback_info_t *lb, size_t width, size_t height) {
     return 0;
 }
 
-int output(frame_chan_t &to_finger, size_t width, size_t height) {
+int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, size_t width, size_t height) {
+
     loopback_info_t lb;
     int res = configure_loopback(&lb, width, height);
     if (res < 0) {
         return res;
     }
 
-    frame_with_idx_t frame;
-    while (boost::fibers::channel_op_status::success == to_finger.pop(frame)) {
+    while (true) {
+
+        finger_output_with_frame_t finger;
+        if (boost::fibers::channel_op_status::success != from_finger.pop(finger)) {
+            cerr << "ERROR: failed to recv result from finger tracking!\n";
+            close(lb.fd);
+            return -1;
+        }
+
+        gesture_output_t gesture;
+        if (boost::fibers::channel_op_status::success != from_gesture.pop(gesture)) {
+            cerr << "ERROR: failed to recv result from gesture detection!\n";
+            close(lb.fd);
+            return -1;
+        }
+        // cout << "bruh\n";
+
         // convert back to yuyv
-        cvtColor(frame.frame, frame.frame, COLOR_BGR2YUV_I420);
-        size_t bytes_written = write(lb.fd, frame.frame.data, lb.framesize);
+        cvtColor(finger.frame, finger.frame, COLOR_BGR2YUV_I420);
+        size_t bytes_written = write(lb.fd, finger.frame.data, lb.framesize);
         if (bytes_written < 0) {
             cerr << "ERROR: failed to write frame to loopback device!";
             close(lb.fd);
@@ -113,6 +134,26 @@ int output(frame_chan_t &to_finger, size_t width, size_t height) {
     }
 
     close(lb.fd);
+    return 0;
+}
+
+int gesture(frame_chan_t &to_gesture, gesture_chan_t &from_gesture) {
+    frame_with_idx_t frame;
+    while (boost::fibers::channel_op_status::success == to_gesture.pop(frame)) {
+        gesture_output_t g = gesture_detection(frame.frame, frame.i);
+        from_gesture.push(g);
+    }
+    from_gesture.close();
+    return 0;
+}
+
+int finger(frame_chan_t &to_finger, finger_chan_t &from_finger) {
+    frame_with_idx_t frame;
+    while (boost::fibers::channel_op_status::success == to_finger.pop(frame)) {
+        finger_output_t f = finger_tracking(frame.frame, frame.i);
+        from_finger.push(finger_output_with_frame_t { frame.frame, f });
+    }
+    from_finger.close();
     return 0;
 }
 
@@ -148,7 +189,9 @@ void print_mat_type(int type) {
 
 int main() {
     frame_chan_t to_finger { 2 };
-    // frame_chan_t to_gesture { FRAME_BUF_SIZE };
+    frame_chan_t to_gesture { 2 };
+    gesture_chan_t from_gesture { 2 };
+    finger_chan_t from_finger { 2 };
 
     VideoCapture cap(0, CAP_V4L);
     
@@ -165,9 +208,13 @@ int main() {
     size_t width = cap.get(CAP_PROP_FRAME_WIDTH);
     size_t height = cap.get(CAP_PROP_FRAME_HEIGHT);
 
-    boost::fibers::fiber input_fiber( bind( input, ref(to_finger), ref(cap)));
-    boost::fibers::fiber output_fiber( bind( output, ref(to_finger), width, height));
+    boost::fibers::fiber input_fiber(bind(input, ref(to_finger), ref(to_gesture), ref(cap)));
+    boost::fibers::fiber finger_fiber(bind(finger, ref(to_finger), ref(from_finger)));
+    boost::fibers::fiber gesture_fiber(bind(gesture, ref(to_gesture), ref(from_gesture)));
+    boost::fibers::fiber output_fiber(bind(output, ref(from_gesture), ref(from_finger), width, height));
     
     output_fiber.join();
+    gesture_fiber.join();
+    finger_fiber.join();
     input_fiber.join();
 }

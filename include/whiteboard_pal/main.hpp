@@ -10,16 +10,16 @@
 using namespace cv;
 using namespace std;
 
-typedef struct FingerOutput {
+typedef struct finger_output {
     int x;
     int y;
-    int idx;
-} FingerOutput;
+    int i;
+} finger_output_t;
 
-typedef struct GestureOutput {
+typedef struct gesture_output {
     bool gesture;
-    int idx;
-} GestureOutput;
+    int i;
+} gesture_output_t;
 
-GestureOutput gesture_detection(Mat frame, int idx);
-FingerOutput finger_tracking(Mat frame, int idx);
+gesture_output_t gesture_detection(Mat frame, int i);
+finger_output_t finger_tracking(Mat frame, int i);
