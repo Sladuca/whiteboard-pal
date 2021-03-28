@@ -8,6 +8,7 @@
 #define FRAME_BUF_SIZE 30
 #define VID_WIDTH  640
 #define VID_HEIGHT 480
+#define DOT_WIDTH 2
 #define VIDEO_OUT "/dev/video6"
 
 typedef struct frame_with_idx {
@@ -106,6 +107,8 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, size_t widt
         return res;
     }
 
+    Mat canvas = Mat::zeros(lb.height, lb.width, CV_8UC1);
+
     while (true) {
 
         finger_output_with_frame_t finger;
@@ -121,9 +124,33 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, size_t widt
             close(lb.fd);
             return -1;
         }
-        // cout << "bruh\n";
 
-        // convert back to yuyv
+        // draw onto canvas
+        if (gesture.gesture) {
+
+            if (finger.finger.x < DOT_WIDTH / 2) {
+                finger.finger.x = DOT_WIDTH / 2;
+            }
+            if (finger.finger.y < DOT_WIDTH / 2) {
+                finger.finger.y = DOT_WIDTH / 2;
+            }
+            if (lb.width - finger.finger.x < DOT_WIDTH / 2) {
+                finger.finger.x = lb.width - DOT_WIDTH / 2;
+            }
+            if (lb.height - finger.finger.y < DOT_WIDTH / 2) {
+                finger.finger.y = lb.height - DOT_WIDTH / 2;
+            }
+
+            // cout << "x: " << finger.finger.x << " y: " << finger.finger.y << "\n";
+
+            Mat roi = canvas(Rect(finger.finger.x-(DOT_WIDTH / 2), finger.finger.y-(DOT_WIDTH/2), DOT_WIDTH, DOT_WIDTH));
+            roi.setTo(1);
+        }
+
+        // apply canvas to frame
+        finger.frame.setTo(Scalar(0, 0, 255), canvas);
+
+        // convert back to yuv420
         cvtColor(finger.frame, finger.frame, COLOR_BGR2YUV_I420);
         size_t bytes_written = write(lb.fd, finger.frame.data, lb.framesize);
         if (bytes_written < 0) {

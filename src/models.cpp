@@ -4,8 +4,8 @@
 // idx: index of the frame, if that's useful for some reason
 finger_output_t finger_tracking(Mat frame, int idx) {
     return finger_output_t {
-        0,
-        0,
+        200,
+        200,
         idx
     };
 }
@@ -14,7 +14,7 @@ finger_output_t finger_tracking(Mat frame, int idx) {
 // idx: index of the frame, if that's useful for some reason
 gesture_output_t gesture_detection(Mat frame, int idx) {
     return gesture_output_t {
-        false,
+        true,
         idx
     };
 }
