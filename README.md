@@ -4,7 +4,7 @@ You must be using a linux-based operating system (Ubuntu, Mint, Arch, etc) and h
 
 * opencv 4
 * v4l2-loopback-dkms
-* libboost-all
+* libboost-all-dev
 * pkg-config
 * CMake
 
