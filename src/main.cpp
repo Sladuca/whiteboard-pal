@@ -15,7 +15,7 @@ typedef struct frame_with_idx {
     Mat frame;
     int i;
 } frame_with_idx_t;
-
+ 
 typedef struct loopback_info {
     size_t width;
     size_t height;
