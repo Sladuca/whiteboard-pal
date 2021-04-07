@@ -7,3 +7,4 @@ cmake_install.cmake
 whiteboard_pal
 /.vs
 /out
+/src/model/variables

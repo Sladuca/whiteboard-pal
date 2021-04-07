@@ -3,7 +3,9 @@ cmake_minimum_required( VERSION 3.0 )
 
 project( whiteboard_pal )
 
-find_package(PkgConfig REQUIRED) 
+find_package(PkgConfig REQUIRED)
+
+find_library(TENSORFLOW_LIB tensorflow HINT $ENV{HOME}/libtensorflow2/lib)
 
 # opencv
 
@@ -19,9 +21,9 @@ endif()
 
 
 # include files
-include_directories( ./include ./src )
+include_directories( ./include ./src)
 
 # target
 add_executable( whiteboard_pal ./src/main.cpp ./src/models.cpp )
 
-target_link_libraries( whiteboard_pal PUBLIC PkgConfig::OPENCV ${Boost_LIBRARIES})
+target_link_libraries( whiteboard_pal PUBLIC PkgConfig::OPENCV ${Boost_LIBRARIES} "${TENSORFLOW_LIB}")

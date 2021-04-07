@@ -4,6 +4,9 @@
 #include <sys/ioctl.h>
 #include <boost/fiber/all.hpp>
 #include <linux/videodev2.h>
+#include "cppflow/cppflow.h"
+#include "cppflow/ops.h"
+#include "cppflow/model.h"
 
 #define FRAME_BUF_SIZE 30
 #define VID_WIDTH  640
@@ -15,7 +18,7 @@ typedef struct frame_with_idx {
     Mat frame;
     int i;
 } frame_with_idx_t;
- 
+
 typedef struct loopback_info {
     size_t width;
     size_t height;
@@ -166,6 +169,7 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, size_t widt
 
 int gesture(frame_chan_t &to_gesture, gesture_chan_t &from_gesture) {
     frame_with_idx_t frame;
+    //cppflow::model model("../model_10_30");
     while (boost::fibers::channel_op_status::success == to_gesture.pop(frame)) {
         gesture_output_t g = gesture_detection(frame.frame, frame.i);
         from_gesture.push(g);
@@ -221,7 +225,7 @@ int main() {
     finger_chan_t from_finger { 2 };
 
     VideoCapture cap(0, CAP_V4L);
-    
+
     if (not cap.isOpened()) {
         cerr << "ERROR: failed to open camera!\n";
         return -2;
@@ -239,7 +243,7 @@ int main() {
     boost::fibers::fiber finger_fiber(bind(finger, ref(to_finger), ref(from_finger)));
     boost::fibers::fiber gesture_fiber(bind(gesture, ref(to_gesture), ref(from_gesture)));
     boost::fibers::fiber output_fiber(bind(output, ref(from_gesture), ref(from_finger), width, height));
-    
+
     output_fiber.join();
     gesture_fiber.join();
     finger_fiber.join();
