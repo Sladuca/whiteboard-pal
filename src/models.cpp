@@ -1,4 +1,6 @@
 #include <whiteboard_pal/main.hpp>
+#include "cppflow/ops.h"
+#include "cppflow/model.h"
 
 // frame: Matrix of the current frame in BGR24 format, that is, the mat entries are 3-bytes deep, each byte representing the B, G, R respectively
 // idx: index of the frame, if that's useful for some reason
@@ -13,6 +15,7 @@ finger_output_t finger_tracking(Mat frame, int idx) {
 // frame: Matrix of the current frame in BGR24 format, that is, the mat entries are 3-bytes deep, each byte representing the B, G, R respectively
 // idx: index of the frame, if that's useful for some reason
 gesture_output_t gesture_detection(Mat frame, int idx) {
+    cppflow::model model("./src/model");
     return gesture_output_t {
         true,
         idx
