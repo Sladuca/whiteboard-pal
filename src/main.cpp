@@ -3,9 +3,6 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <linux/videodev2.h>
-#include "cppflow/cppflow.h"
-#include "cppflow/ops.h"
-#include "cppflow/model.h"
 
 #define FRAME_BUF_SIZE 30
 #define VID_WIDTH  640
@@ -156,9 +153,9 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_ch
 
 int gesture(frame_chan_t &to_gesture, gesture_chan_t &from_gesture) {
     frame_with_idx_t frame;
-    //cppflow::model model("../model_10_30");
+    cppflow::model model("../model_10_30");
     while (boost::fibers::channel_op_status::success == to_gesture.pop(frame)) {
-        gesture_output_t g = gesture_detection(frame.frame, frame.i);
+        gesture_output_t g = gesture_detection(model, frame.frame, frame.i);
         from_gesture.push(g);
     }
     from_gesture.close();
@@ -180,7 +177,7 @@ int main() {
     frame_chan_t to_gesture { 2 };
     gesture_chan_t from_gesture { 2 };
     finger_chan_t from_finger { 2 };
-    cap_size_chan_t broadcast_size { 1 };
+    cap_size_chan_t broadcast_size;
 
     boost::fibers::fiber input_fiber(bind(input, ref(to_finger), ref(to_gesture), ref(broadcast_size), WEBCAM));
     boost::fibers::fiber finger_fiber(bind(finger, ref(to_finger), ref(from_finger)));

@@ -1,10 +1,13 @@
-#ifndef OPENCV_HDRS
-#define OPENCV_HDRS
+#ifndef GLOBRL_HDRS
+#define GLOBRL_HDRS
 
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/imgproc.hpp>
 #include <boost/fiber/all.hpp>
+#include "cppflow/cppflow.h"
+#include "cppflow/ops.h"
+#include "cppflow/model.h"
 
 #endif
 
@@ -53,7 +56,7 @@ typedef enum capture_source {
 typedef boost::fibers::buffered_channel<frame_with_idx_t> frame_chan_t;
 typedef boost::fibers::buffered_channel<gesture_output_t> gesture_chan_t;
 typedef boost::fibers::buffered_channel<finger_output_with_frame_t> finger_chan_t;
-typedef boost::fibers::buffered_channel<capture_size_t> cap_size_chan_t;
+typedef boost::fibers::unbuffered_channel<capture_size_t> cap_size_chan_t;
 
 gesture_output_t gesture_detection(cppflow::model model, Mat frame, int i);
 finger_output_t finger_tracking(Mat frame, int i);
