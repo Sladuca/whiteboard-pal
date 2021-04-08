@@ -10,6 +10,7 @@ find_library(TENSORFLOW_LIB tensorflow HINT $ENV{HOME}/libtensorflow2/lib)
 # opencv
 
 pkg_check_modules(OPENCV REQUIRED IMPORTED_TARGET opencv4)
+pkg_check_modules(X11 REQUIRED IMPORTED_TARGET x11)
 
 # boost
 find_package(Boost REQUIRED COMPONENTS fiber)
@@ -24,6 +25,6 @@ endif()
 include_directories( ./include ./src)
 
 # target
-add_executable( whiteboard_pal ./src/main.cpp ./src/models.cpp )
+add_executable( whiteboard_pal ./src/main.cpp ./src/models.cpp ./src/inputs.cpp )
 
-target_link_libraries( whiteboard_pal PUBLIC PkgConfig::OPENCV ${Boost_LIBRARIES} "${TENSORFLOW_LIB}")
+target_link_libraries( whiteboard_pal PUBLIC PkgConfig::OPENCV PkgConfig::X11 ${Boost_LIBRARIES} "${TENSORFLOW_LIB}")
