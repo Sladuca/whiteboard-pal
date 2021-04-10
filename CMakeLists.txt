@@ -23,7 +23,7 @@ endif()
 
 
 # include files
-include_directories( ./include ./src $ENV{HOME}/libtensorflow2/include)
+include_directories( ./include ./src )
 
 # target
 add_executable( whiteboard_pal ./src/main.cpp ./src/models.cpp ./src/inputs.cpp )

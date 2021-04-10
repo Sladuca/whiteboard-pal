@@ -141,6 +141,7 @@ int whiteboard(frame_chan_t &substrate_chan, cap_size_chan_t &broadcast_size) {
     capture_size_t cap_size;
     if (boost::fibers::channel_op_status::success != broadcast_size.pop(cap_size)) {
         cerr << "ERROR: failed to get capture size from input!\n";
+        substrate_chan.close();
         return -1;
     }
     int width = cap_size.width;
@@ -151,11 +152,7 @@ int whiteboard(frame_chan_t &substrate_chan, cap_size_chan_t &broadcast_size) {
     int i = 0;
     while (true) {
         frame = white;
-        if (frame.empty()) {
-            cerr << "ERROR: failed to read frame!";
-            return -1;
-        }
-        substrate_chan.close();
+        substrate_chan.push(frame_with_idx_t { frame, i });
         i++;
     }
     substrate_chan.close();
@@ -167,6 +164,9 @@ int input(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &br
     
     if (not cap.isOpened()) {
         cerr << "ERROR: failed to open camera!\n";
+        to_finger.close();
+        to_gesture.close();
+        broadcast_size.close();
         return -2;
     }
 
@@ -186,6 +186,8 @@ int input(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &br
         cap.read(frame);
         if (frame.empty()) {
             cerr << "ERROR: failed to read frame!";
+            to_finger.close();
+            to_gesture.close();
             return -1;
         }
         Mat frame2 = frame;

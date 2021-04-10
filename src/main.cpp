@@ -81,6 +81,8 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_ch
     capture_size_t cap_size;
     if (boost::fibers::channel_op_status::success != broadcast_size.pop(cap_size)) {
         cerr << "ERROR: failed to get capture size from input!\n";
+        from_gesture.close();
+        from_finger.close();
         return -1;
     }
     int width = cap_size.width;
@@ -102,6 +104,8 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_ch
         if (boost::fibers::channel_op_status::success != from_finger.pop(finger)) {
             cerr << "ERROR: failed to recv result from finger tracking!\n";
             close(lb.fd);
+            from_gesture.close();
+            from_finger.close();
             return -1;
         }
 
@@ -109,6 +113,8 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_ch
         if (boost::fibers::channel_op_status::success != from_gesture.pop(gesture)) {
             cerr << "ERROR: failed to recv result from gesture detection!\n";
             close(lb.fd);
+            from_gesture.close();
+            from_finger.close();
             return -1;
         }
 
@@ -119,6 +125,8 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_ch
         } else if (boost::fibers::channel_op_status::success != substrate_chan.pop(sub)) {
             cerr << "ERROR: failed to recv substrate frame from substrate!\n";
             close(lb.fd);
+            from_gesture.close();
+            from_finger.close();
             return -1;
         }
 
@@ -153,11 +161,15 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_ch
         if (bytes_written < 0) {
             cerr << "ERROR: failed to write frame to loopback device!";
             close(lb.fd);
+            from_gesture.close();
+            from_finger.close();
             return -2;
         }
     }
 
     close(lb.fd);
+    from_gesture.close();
+    from_finger.close();
     return 0;
 }
 
@@ -169,6 +181,7 @@ int gesture(frame_chan_t &to_gesture, gesture_chan_t &from_gesture) {
         from_gesture.push(g);
     }
     from_gesture.close();
+    to_gesture.close();
     return 0;
 }
 
