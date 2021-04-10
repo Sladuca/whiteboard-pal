@@ -1,4 +1,4 @@
-iport cv2
+import cv2
 import numpy as np
 from collections import deque
 
@@ -123,27 +123,7 @@ def manage_image_opr(frame, hand_hist, points, draw_mode):
     hist_mask_image = hist_masking(frame, hand_hist)
     # hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    """
-    cv2.imshow("Original frame", frame)
-    h,s,v = cv2.split(hsvImage)
-
-    cv2.imshow("H channel", h)
-
-
-    im = cv2.cvtColor(frame, cv2.IMREAD_GRAYSCALE)
-    detector = cv2.SimpleBlobDetector()
-    keypoints = detector.detect(im)
-    im_with_keypoints = cv2.drawKeypoints(im, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    cv2.imshow("Keypoints", im_with_keypoints)
-    cv2.waitKey(0)
-
-    h_erode = cv2.erode(h, None, iterations=2)
-    h_dilate = cv2.dilate(h_erode, None, iterations=2)
     
-    cv2.imshow("H erode", h_erode)
-    cv2.imshow("H dilate", h_dilate)
-    """
-
     u_hue = cv2.getTrackbarPos("Upper Hue",
                                "Color detectors")
     u_saturation = cv2.getTrackbarPos("Upper Saturation",
@@ -251,41 +231,7 @@ def main():
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         frame = cv2.flip(frame, 1)
         hsv = cv2.flip(hsv, 1)
-        """       
-        u_hue = cv2.getTrackbarPos("Upper Hue",
-                               "Color detectors")
-        u_saturation = cv2.getTrackbarPos("Upper Saturation",
-                                      "Color detectors")
-        u_value = cv2.getTrackbarPos("Upper Value",
-                                 "Color detectors")
-        l_hue = cv2.getTrackbarPos("Lower Hue",
-                               "Color detectors")
-        l_saturation = cv2.getTrackbarPos("Lower Saturation",
-                                      "Color detectors")
-        l_value = cv2.getTrackbarPos("Lower Value",
-                                 "Color detectors")
-        Upper_hsv = np.array([u_hue, u_saturation, u_value])
-        Lower_hsv = np.array([l_hue, l_saturation, l_value])
         
-        Mask = cv2.inRange(hsv, Lower_hsv, Upper_hsv)
-        cv2.imshow("ONE", Mask)
-        Mask = cv2.erode(Mask, kernel, iterations = 1)
-        cv2.imshow("TWO", Mask)
-        Mask = cv2.morphologyEx(Mask, cv2.MORPH_OPEN, kernel)
-        cv2.imshow("THREE", Mask)
-        Mask = cv2.dilate(Mask, kernel, iterations = 1)
-        cv2.imshow("MASK MASK MASK MASK", Mask)
-        """
-
-        # _, cnts, _ = cv2.findContours(Mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        #areas = [cv2.contourArea(c) for c in cnts]
-        #max_index = -1
-        #if len(cnts) > 9:
-        #    max_index = np.argmax(areas)
-        #cv2.drawContours(frame,cnts, max_index,(0, 230, 255),6)
-
-
         if pressed_key & 0xFF == ord('z'):
             is_hand_hist_created = True
             hand_hist = hand_histogram(frame)
