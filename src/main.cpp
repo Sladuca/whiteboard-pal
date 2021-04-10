@@ -77,10 +77,12 @@ int configure_loopback(loopback_info_t *lb, size_t width, size_t height) {
     return 0;
 }
 
-int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_chan_t &broadcast_size) {
+int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_chan_t &broadcast_size, frame_chan_t &substrate_chan, bool use_substrate) {
     capture_size_t cap_size;
     if (boost::fibers::channel_op_status::success != broadcast_size.pop(cap_size)) {
         cerr << "ERROR: failed to get capture size from input!\n";
+        from_gesture.close();
+        from_finger.close();
         return -1;
     }
     int width = cap_size.width;
@@ -102,6 +104,8 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_ch
         if (boost::fibers::channel_op_status::success != from_finger.pop(finger)) {
             cerr << "ERROR: failed to recv result from finger tracking!\n";
             close(lb.fd);
+            from_gesture.close();
+            from_finger.close();
             return -1;
         }
 
@@ -109,6 +113,20 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_ch
         if (boost::fibers::channel_op_status::success != from_gesture.pop(gesture)) {
             cerr << "ERROR: failed to recv result from gesture detection!\n";
             close(lb.fd);
+            from_gesture.close();
+            from_finger.close();
+            return -1;
+        }
+
+        frame_with_idx_t sub;
+        if (!use_substrate) {
+            sub.frame = finger.frame;
+            sub.i = finger.finger.i;
+        } else if (boost::fibers::channel_op_status::success != substrate_chan.pop(sub)) {
+            cerr << "ERROR: failed to recv substrate frame from substrate!\n";
+            close(lb.fd);
+            from_gesture.close();
+            from_finger.close();
             return -1;
         }
 
@@ -135,19 +153,23 @@ int output(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_ch
         }
 
         // apply canvas to frame
-        finger.frame.setTo(Scalar(0, 0, 255), canvas);
+        sub.frame.setTo(Scalar(0, 0, 255), canvas);
 
         // convert back to yuv420
-        cvtColor(finger.frame, finger.frame, COLOR_BGR2YUV_I420);
-        size_t bytes_written = write(lb.fd, finger.frame.data, lb.framesize);
+        cvtColor(sub.frame, sub.frame, COLOR_BGR2YUV_I420);
+        size_t bytes_written = write(lb.fd, sub.frame.data, lb.framesize);
         if (bytes_written < 0) {
             cerr << "ERROR: failed to write frame to loopback device!";
             close(lb.fd);
+            from_gesture.close();
+            from_finger.close();
             return -2;
         }
     }
 
     close(lb.fd);
+    from_gesture.close();
+    from_finger.close();
     return 0;
 }
 
@@ -159,6 +181,7 @@ int gesture(frame_chan_t &to_gesture, gesture_chan_t &from_gesture) {
         from_gesture.push(g);
     }
     from_gesture.close();
+    to_gesture.close();
     return 0;
 }
 
@@ -172,20 +195,57 @@ int finger(frame_chan_t &to_finger, finger_chan_t &from_finger) {
     return 0;
 }
 
+int input_wrapped(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &broadcast_size) {
+    boost::fibers::fiber fiber(bind(input, ref(to_finger), ref(to_gesture), ref(broadcast_size)));
+    fiber.join();
+    return 0;
+}
+
+int finger_wrapped(frame_chan_t &to_finger, finger_chan_t &from_finger) {
+    boost::fibers::fiber fiber(bind(finger, ref(to_finger), ref(from_finger)));
+    fiber.join();
+    return 0;
+}
+
+int gesture_wrapped(frame_chan_t &to_gesture, gesture_chan_t &from_gesture) {
+    boost::fibers::fiber fiber(bind(gesture, ref(to_gesture), ref(from_gesture)));
+    fiber.join();
+    return 0;
+}
+
+int output_wrapped(gesture_chan_t &from_gesture, finger_chan_t &from_finger, cap_size_chan_t &broadcast_size, substrate_source_t source) {
+    frame_chan_t substrate_chan { 2 };
+    if (source == WEBCAM) {
+        boost::fibers::fiber fiber(bind(output, ref(from_gesture), ref(from_finger), ref(broadcast_size), ref(substrate_chan), false));
+        fiber.join();
+        return 0;
+    }
+    
+    thread substrate_thread(substrate, ref(substrate_chan), ref(broadcast_size), source);
+    boost::fibers::fiber fiber(bind(output, ref(from_gesture), ref(from_finger), ref(broadcast_size), ref(substrate_chan), true));
+    
+    fiber.join();
+    substrate_chan.close();
+    substrate_thread.join();
+    return 0;
+}
+
+
 int main() {
     frame_chan_t to_finger { 2 };
     frame_chan_t to_gesture { 2 };
     gesture_chan_t from_gesture { 2 };
     finger_chan_t from_finger { 2 };
-    cap_size_chan_t broadcast_size;
+    cap_size_chan_t broadcast_size { 2 };
 
-    boost::fibers::fiber input_fiber(bind(input, ref(to_finger), ref(to_gesture), ref(broadcast_size), WEBCAM));
-    boost::fibers::fiber finger_fiber(bind(finger, ref(to_finger), ref(from_finger)));
-    boost::fibers::fiber gesture_fiber(bind(gesture, ref(to_gesture), ref(from_gesture)));
-    boost::fibers::fiber output_fiber(bind(output, ref(from_gesture), ref(from_finger), ref(broadcast_size)));
-
-    output_fiber.join();
-    gesture_fiber.join();
-    finger_fiber.join();
-    input_fiber.join();
+    thread threads[] = {
+        thread(input_wrapped, ref(to_finger), ref(to_gesture), ref(broadcast_size)),
+        thread(finger_wrapped, ref(to_finger), ref(from_finger)),
+        thread(gesture_wrapped, ref(to_gesture), ref(from_gesture)),
+        thread(output_wrapped, ref(from_gesture), ref(from_finger), ref(broadcast_size), WHITEBOARD)
+    };
+    
+    for (int i = 0; i < 5; i++) {
+        threads[i].join();
+    }
 }
