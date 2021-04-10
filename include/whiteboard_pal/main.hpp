@@ -4,6 +4,8 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/core/mat.hpp>
 #include <boost/fiber/all.hpp>
 #include "cppflow/cppflow.h"
 #include "cppflow/ops.h"
@@ -34,7 +36,7 @@ typedef struct frame_with_idx {
     Mat frame;
     int i;
 } frame_with_idx_t;
- 
+
 typedef struct loopback_info {
     size_t width;
     size_t height;

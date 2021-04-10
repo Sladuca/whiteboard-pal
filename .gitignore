@@ -6,4 +6,5 @@ cmake_install.cmake
 /CMakeFiles
 /.vs
 /out
+.jpg
 
