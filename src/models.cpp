@@ -1,8 +1,4 @@
 #include <whiteboard_pal/main.hpp>
-#include "cppflow/ops.h"
-#include "cppflow/model.h"
-#include "cppflow/tensor.h"
-#include "cppflow/cppflow.h"
 
 // frame: Matrix of the current frame in BGR24 format, that is, the mat entries are 3-bytes deep, each byte representing the B, G, R respectively
 // idx: index of the frame, if that's useful for some reason

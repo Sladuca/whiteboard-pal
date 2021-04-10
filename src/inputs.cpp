@@ -107,28 +107,62 @@ struct ScreenShot{
     bool init;
 };
 
-int input_screen(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &broadcast_size) {
+int screen(frame_chan_t &substrate_chan, cap_size_chan_t &broadcast_size) {
     ScreenShot cap;
-    broadcast_size.push(capture_size_t { cap.width, cap.height });
-    Mat frame;
+    capture_size_t cap_size;
+        if (boost::fibers::channel_op_status::success != broadcast_size.pop(cap_size)) {
+        cerr << "ERROR: failed to get capture size from input!\n";
+        return -1;
+    }
+    int width = cap_size.width;
+    int height = cap_size.height;
+
+    
     int i = 0;
     while (true) {
+        Mat frame;
+        Mat resized;
+
         cap(frame);
+        resize(frame, resized, Size(width, height), 0, 0);
         if (frame.empty()) {
             cerr << "ERROR: failed to read frame!";
             return -1;
         }
-        Mat frame2 = frame;
-        to_finger.push(frame_with_idx_t { frame, i });
-        to_gesture.push(frame_with_idx_t { frame2, i});
+        substrate_chan.push(frame_with_idx_t { resized, i });
         i++;
     }
-    to_finger.close();
-    to_gesture.close();
+    substrate_chan.close();
     return 0;
 }
 
-int input_camera(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &broadcast_size) {            
+
+int whiteboard(frame_chan_t &substrate_chan, cap_size_chan_t &broadcast_size) {
+    capture_size_t cap_size;
+    if (boost::fibers::channel_op_status::success != broadcast_size.pop(cap_size)) {
+        cerr << "ERROR: failed to get capture size from input!\n";
+        return -1;
+    }
+    int width = cap_size.width;
+    int height = cap_size.height;
+
+    Mat white = Mat(cv::Size(width, height), CV_8UC3, Scalar(255, 255, 255));
+    Mat frame;
+    int i = 0;
+    while (true) {
+        frame = white;
+        if (frame.empty()) {
+            cerr << "ERROR: failed to read frame!";
+            return -1;
+        }
+        substrate_chan.close();
+        i++;
+    }
+    substrate_chan.close();
+    return 0;
+}
+
+int input(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &broadcast_size) {
     VideoCapture cap(0, CAP_V4L);
     
     if (not cap.isOpened()) {
@@ -145,31 +179,11 @@ int input_camera(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_cha
     size_t height = cap.get(CAP_PROP_FRAME_HEIGHT);
 
     broadcast_size.push(capture_size_t { width, height });
+    broadcast_size.push(capture_size_t { width, height });
     Mat frame;
     int i = 0;
     while (true) {
         cap.read(frame);
-        if (frame.empty()) {
-            cerr << "ERROR: failed to read frame!";
-            return -1;
-        }
-       Mat frame2 = frame;
-        to_finger.push(frame_with_idx_t { frame, i });
-        to_gesture.push(frame_with_idx_t { frame2, i});
-        i++;
-    }
-    to_finger.close();
-    to_gesture.close();
-    return 0;
-}
-
-int input_white(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &broadcast_size) {
-    Mat white = Mat(cv::Size(640, 480), CV_8UC3, Scalar(255, 255, 255));
-    broadcast_size.push(capture_size_t { WHITEBOARD_WIDTH, WHITEBOARD_HEIGHT });
-    Mat frame;
-    int i = 0;
-    while (true) {
-        frame = white;
         if (frame.empty()) {
             cerr << "ERROR: failed to read frame!";
             return -1;
@@ -181,18 +195,18 @@ int input_white(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan
     }
     to_finger.close();
     to_gesture.close();
+    broadcast_size.close();
     return 0;
 }
 
-int input(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &broadcast_size, capture_source_t source) {
+int substrate(frame_chan_t &substrate_chan, cap_size_chan_t &broadcast_size, substrate_source_t source) {
     switch (source) {
-        case WEBCAM:
-            return input_camera(to_finger, to_gesture, broadcast_size);
-
         case SCREEN:
-            return input_screen(to_finger, to_gesture, broadcast_size);
-
+            return screen(substrate_chan, broadcast_size);
         case WHITEBOARD:
-            return input_white(to_finger, to_gesture, broadcast_size);
+            return whiteboard(substrate_chan, broadcast_size);
+        default:
+            cout << "unknown substrate source" << source;
+            return -1;
     }
 }
