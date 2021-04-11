@@ -11,10 +11,27 @@
 #include "cppflow/model.h"
 #include "cppflow/tensor.h"
 #include "cppflow/cppflow.h"
+#include <chrono>;
 #endif
 
 using namespace cv;
 using namespace std;
+using namespace std::literals;
+
+typedef chrono::time_point<chrono::steady_clock> instant_t;
+
+typedef struct perf_info {
+    instant_t in_start;
+    instant_t in_end;
+    instant_t gesture_start;
+    instant_t finger_start;
+    instant_t gesture_end;
+    instant_t finger_end;
+    instant_t output_recv_finger;
+    instant_t output_recv_gesture;
+    instant_t output_start;
+    instant_t output_end;
+} perf_info_t;
 
 typedef struct capture_size {
     int width;
@@ -28,12 +45,13 @@ typedef struct finger_output {
 } finger_output_t;
 
 typedef struct gesture_output {
-    bool gesture;
     int i;
+    bool gesture;
 } gesture_output_t;
 
 typedef struct frame_with_idx {
     Mat frame;
+    perf_info_t *perf;
     int i;
 } frame_with_idx_t;
 
@@ -46,6 +64,7 @@ typedef struct loopback_info {
 
 typedef struct finger_output_with_frame {
     Mat frame;
+    perf_info_t *perf;
     finger_output_t finger;
 } finger_output_with_frame_t;
 
@@ -55,10 +74,12 @@ typedef enum substrate_source {
     WHITEBOARD,
 } substrate_source_t;
 
+
 typedef boost::fibers::buffered_channel<frame_with_idx_t> frame_chan_t;
 typedef boost::fibers::buffered_channel<gesture_output_t> gesture_chan_t;
 typedef boost::fibers::buffered_channel<finger_output_with_frame_t> finger_chan_t;
 typedef boost::fibers::buffered_channel<capture_size_t> cap_size_chan_t;
+typedef boost::fibers::buffered_channel<perf_info_t *> perf_chan_t;
 
 gesture_output_t gesture_detection(cppflow::model model, Mat frame, int i);
 finger_output_t finger_tracking(Mat frame, int i);

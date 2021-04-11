@@ -129,7 +129,7 @@ int screen(frame_chan_t &substrate_chan, cap_size_chan_t &broadcast_size) {
             cerr << "ERROR: failed to read frame!";
             return -1;
         }
-        substrate_chan.push(frame_with_idx_t { resized, i });
+        substrate_chan.push(frame_with_idx_t { resized, NULL, i });
         i++;
     }
     substrate_chan.close();
@@ -152,7 +152,7 @@ int whiteboard(frame_chan_t &substrate_chan, cap_size_chan_t &broadcast_size) {
     int i = 0;
     while (true) {
         frame = white;
-        substrate_chan.push(frame_with_idx_t { frame, i });
+        substrate_chan.push(frame_with_idx_t { frame, NULL, i });
         i++;
     }
     substrate_chan.close();
@@ -183,16 +183,28 @@ int input(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &br
     Mat frame;
     int i = 0;
     while (true) {
+        perf_info_t *perf = new perf_info_t;
+        if (perf == NULL) {
+            cerr << "ERROR: malloc failed!";
+            to_finger.close();
+            to_gesture.close();
+            return -1;
+        }
+
+        perf->in_start = chrono::steady_clock::now();
         cap.read(frame);
+        perf->in_end = chrono::steady_clock::now();
+
         if (frame.empty()) {
             cerr << "ERROR: failed to read frame!";
             to_finger.close();
             to_gesture.close();
             return -1;
         }
+
         Mat frame2 = frame;
-        to_finger.push(frame_with_idx_t { frame, i });
-        to_gesture.push(frame_with_idx_t { frame2, i});
+        to_finger.push(frame_with_idx_t { frame, perf, i });
+        to_gesture.push(frame_with_idx_t { frame2, perf, i});
         i++;
     }
     to_finger.close();

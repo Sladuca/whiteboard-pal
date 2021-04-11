@@ -34,12 +34,14 @@ gesture_output_t gesture_detection(cppflow::model model, Mat frame, int idx) {
     cppflow::tensor res = output[0];
     std::vector<float> prediction = res.get_data<float>();
     bool gesture = false;
-    if (prediction[0] == 0)
+
+    if (prediction[0] == 0) {
       gesture = true;
-    if (gesture)
-      std::cout << "gesture" << std::endl;
-    else
-      std::cout << "no gesture" << std::endl;
+    }
+    // if (gesture)
+    //   std::cout << "gesture" << std::endl;
+    // else
+    //   std::cout << "no gesture" << std::endl;
 
     return gesture_output_t {
         gesture,
