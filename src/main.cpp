@@ -10,25 +10,6 @@
 #define DOT_WIDTH 20
 #define VIDEO_OUT "/dev/video6"
 
-// int input(frame_chan_t &to_finger, frame_chan_t &to_gesture, VideoCapture cap) {
-
-//     Mat frame;
-//     while (true) {
-//         cap.read(frame);
-//         if (frame.empty()) {
-//             cerr << "ERROR: failed to read frame!";
-//             return -1;
-//         }
-//         int i = cap.get(CAP_PROP_POS_FRAMES);
-//         Mat frame2 = frame;
-//         to_finger.push(frame_with_idx_t { frame, i });
-//         to_gesture.push(frame_with_idx_t { frame2, i});
-//     }
-//     to_finger.close();
-//     to_gesture.close();
-//     return 0;
-// }
-
 int configure_loopback(loopback_info_t *lb, size_t width, size_t height) {
     int fd = open(VIDEO_OUT, O_RDWR);
     if(fd < 0) {
