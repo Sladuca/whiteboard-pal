@@ -15,9 +15,9 @@ finger_output_t finger_tracking(Mat frame, int idx) {
 gesture_output_t gesture_detection(cppflow::model model, Mat frame, int idx) {
     flip(frame, frame, 1);
     //convert to HSV color space, then threshold
-    Mat frame_HSV, frame_threshold, frame_blur, final, final_resized;
-    cvtColor(frame, frame_HSV, COLOR_BGR2HSV);
-    inRange(frame_HSV, Scalar(60, 90, 50), Scalar(140, 255, 255), frame_threshold);
+    Mat frame_threshold, frame_blur, final, final_resized;
+    cvtColor(frame, frame, COLOR_BGR2HSV);
+    inRange(frame, Scalar(60, 90, 50), Scalar(140, 255, 255), frame_threshold);
     blur(frame_threshold, frame_blur, Size(2, 2));
     threshold(frame_blur, final, 0, 255, THRESH_BINARY);
     resize(final, final_resized, Size(250, 250));
