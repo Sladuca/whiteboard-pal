@@ -1,8 +1,61 @@
 #include <whiteboard_pal/main.hpp>
 
+#define MORPH_SIZE    2
+#define EROSION_SIZE  2
+#define DILATION_SIZE 2
+
 // frame: Matrix of the current frame in BGR24 format, that is, the mat entries are 3-bytes deep, each byte representing the B, G, R respectively
 // idx: index of the frame, if that's useful for some reason
-finger_output_t finger_tracking(Mat frame, int idx) {
+finger_output_t finger_tracking(Mat frame, int idx/*, std::deque<point> points*/) {
+    Mat hsv, hsv_range, erosion, morph, dialation, bw; /*bw bw bw bw bw bw*/
+    Mat erosion_ele, morph_ele, dialation_ele;
+    cvtColor(frame,hsv, COLOR_BGR2HSV);
+    
+    // vector<Mat> contours;
+    std::vector<std::vector<cv::Point> > contours;
+
+    inRange(hsv, Scalar(60, 90, 50), Scalar(140, 255, 255), hsv_range); // Used Jenny's filtering constants
+    // These were just 2d arrays of ones before
+    erosion_ele    = getStructuringElement(0/*Morph Rect*/,
+		                           Size(2*EROSION_SIZE+1,2*EROSION_SIZE+1),
+					   Point(EROSION_SIZE,EROSION_SIZE)); //Default point maybe should be 5,5
+    morph_ele      = getStructuringElement(0/*Morph Rect*/,
+		                           Size(2*MORPH_SIZE+1,2*MORPH_SIZE+1),
+					   Point(MORPH_SIZE,MORPH_SIZE));
+    dialation_ele  = getStructuringElement(0/*Morph Rect*/,
+		                           Size(2*DIALATION_SIZE+1,2*DIALATION_SIZE+1),
+					   Point(DIALATION_SIZE,DIALATION_SIZE));
+    erode(hsv,erosion,erosion_ele);
+    morphologyEx(erosion, morph, 2 /*MORPH_OPEN*/, morph_ele);
+    dilate(morph, dialation,dialation_ele);
+    //Dialation mask should be the noiseless binary output of hand position
+    findContours(bw.clone(), contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+    vector<Point> max_cont;
+    float max_cont_area = 0.0;
+    for(i = 0; i< contours.size; i++){
+        float area = fabs(contoursArea(contours[i]));
+	if( area > max_cont_area){
+        max_cont_area = area;
+	max_cont = contours[i];
+      }
+    }
+    
+    //Farthest point
+    //New way to find max centroid
+   
+    Moments m = moments(max_cont, true);
+    cv::Point farthest_point;
+    Point centroid(m.m10/m.m00, m.m01/m.m00);
+    for(int k = 0; k < max_cont.size; k++){
+      float new_dist = dist(centroid, max_cont[i]);
+      if(new_dist > old_dist){
+	old_dist = new_dist;
+        farthest_point = max_cont[i];
+      }
+    }
+    
+    
+    
     return finger_output_t {
         200,
         200,
