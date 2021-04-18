@@ -1,8 +1,8 @@
 #include <whiteboard_pal/main.hpp>
 
-#define MORPH_SIZE    2
-#define EROSION_SIZE  2
-#define DILATION_SIZE 2
+#define MORPH_SIZE     2
+#define EROSION_SIZE   2
+#define DIALATION_SIZE 2
 
 // frame: Matrix of the current frame in BGR24 format, that is, the mat entries are 3-bytes deep, each byte representing the B, G, R respectively
 // idx: index of the frame, if that's useful for some reason
@@ -29,11 +29,12 @@ finger_output_t finger_tracking(Mat frame, int idx/*, std::deque<point> points*/
     morphologyEx(erosion, morph, 2 /*MORPH_OPEN*/, morph_ele);
     dilate(morph, dialation,dialation_ele);
     //Dialation mask should be the noiseless binary output of hand position
-    findContours(bw.clone(), contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+    // These two defines are located in cv::traits
+    findContours(bw.clone(), contours, 0/*CV_RETR_EXTERNAL*/, 2/*CV_CHAIN_APPROX_SIMPLE*/);
     vector<Point> max_cont;
     float max_cont_area = 0.0;
-    for(i = 0; i< contours.size; i++){
-        float area = fabs(contoursArea(contours[i]));
+    for(int i = 0; i< contours.size; i++){
+        float area = fabs(contourArea(contours[i]));
 	if( area > max_cont_area){
         max_cont_area = area;
 	max_cont = contours[i];
@@ -47,10 +48,10 @@ finger_output_t finger_tracking(Mat frame, int idx/*, std::deque<point> points*/
     cv::Point farthest_point;
     Point centroid(m.m10/m.m00, m.m01/m.m00);
     for(int k = 0; k < max_cont.size; k++){
-      float new_dist = dist(centroid, max_cont[i]);
+      float new_dist = dist(centroid, max_cont[k]);
       if(new_dist > old_dist){
 	old_dist = new_dist;
-        farthest_point = max_cont[i];
+        farthest_point = max_cont[k];
       }
     }
     
