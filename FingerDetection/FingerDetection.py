@@ -97,13 +97,15 @@ def farthest_point(defects, contour, centroid):
 
         x = np.array(contour[s][:, 0][:, 0], dtype=np.float)
         y = np.array(contour[s][:, 0][:, 1], dtype=np.float)
+        #print(x)
+        #print(y)
 
         xp = cv2.pow(cv2.subtract(x, cx), 2)
         yp = cv2.pow(cv2.subtract(y, cy), 2)
         dist = cv2.sqrt(cv2.add(xp, yp))
-
+        print(xp)
         dist_max_i = np.argmax(dist)
-
+        
         if dist_max_i < len(s):
             farthest_defect = s[dist_max_i]
             farthest_point = tuple(contour[farthest_defect][0])
@@ -254,7 +256,7 @@ def main():
         if is_hand_hist_created:
             manage_image_opr(frame, hand_hist,bpoints,draw_mode)
             
-            print(bpoints)
+            #print(bpoints)
             points = [bpoints, gpoints, rpoints, ypoints]
             if(draw_mode):
                 for i in range(len(points)):
