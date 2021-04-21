@@ -4,6 +4,13 @@
 #define EROSION_SIZE   2
 #define DIALATION_SIZE 2
 
+void print_point_vec(vector<Point> &vec){
+    for(int i = 0; i < vec.size(); i++){
+	printf("(%d, %d) ",vec[i].x,vec[i].y);
+    }
+    printf("Vector Size: %ld\n",vec.size());
+}
+
 // frame: Matrix of the current frame in BGR24 format, that is, the mat entries are 3-bytes deep, each byte representing the B, G, R respectively
 // idx: index of the frame, if that's useful for some reason
 finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
@@ -11,9 +18,9 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
     Mat erosion_ele, morph_ele, dialation_ele;
     cvtColor(frame,hsv, COLOR_BGR2HSV);
     
+    printf("First\n");
     // vector<Mat> contours;
     std::vector<std::vector<cv::Point> > contours;
-
     inRange(hsv, Scalar(60, 90, 50), Scalar(140, 255, 255), hsv_range); // Used Jenny's filtering constants
     // These were just 2d arrays of ones before
     erosion_ele    = getStructuringElement(0/*Morph Rect*/,
@@ -25,6 +32,7 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
     dialation_ele  = getStructuringElement(0/*Morph Rect*/,
 		                           Size(2*DIALATION_SIZE+1,2*DIALATION_SIZE+1),
 					   Point(DIALATION_SIZE,DIALATION_SIZE));
+    printf("Second\n");
     imshow("1: HSV_Image", hsv);
     erode(hsv,erosion,erosion_ele);
     imshow("2: Erpsion", erosion);
@@ -33,14 +41,15 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
     dilate(morph, dialation,dialation_ele);
     imshow("4: Dialation", dialation);
     //Dialation mask should be the noiseless binary output of hand position
-    
+    printf("Third\n");
     // These two defines are located in cv::traits
-    findContours(bw.clone(), contours, 0/*CV_RETR_EXTERNAL*/, 2/*CV_CHAIN_APPROX_SIMPLE*/);
+    cvStartFindContours_Impl(frame, contours, 0/*CV_RETR_EXTERNAL*/, 2/*CV_CHAIN_APPROX_SIMPLE*/);
+
     vector<Point> max_cont;
     double max_cont_area = 0;
-    int max_cont_idx         = 0;
-/*
-    for(int i = 0; i< contours.size; i++){
+    int max_cont_idx     = 0;
+
+    for(int i = 0; i< contours.size(); i++){
         double area = fabs(contourArea(contours[i]));
 	if( area > max_cont_area){
           max_cont_area = area;
@@ -48,10 +57,11 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
 	  max_cont_idx  = i;
       }
     }
-  */  
+    printf("Contour List Size: %ld, Index of Maximum Area Contour: %d\n",contours.size(), max_cont_idx);
+    print_point_vec(ref(contours[max_cont_idx]));
     //Farthest point
     //New way to find max centroid
-   
+    printf("Fourth\n");
     Moments m = moments(max_cont, true);
     cv::Point farthest_point;
     Point centroid(m.m10/m.m00, m.m01/m.m00);
@@ -63,7 +73,7 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
     colors[1] = Scalar(0,255,0);
     colors[2] = Scalar(0,0,255);
     drawContours(contour_mat,contours, max_cont_idx,colors[0]);
-
+    printf("Fifth\n");
     imshow("5: Contour Display", contour_mat);
     //Slow method
     int max_dist = 0;
@@ -77,9 +87,10 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
 	max_dist = tmp;
       }
     }
-
+    printf("Sixth\n");
+    print_point_vec(ref(max_cont));
     points.push_back(max_cont[max_idx]);
-    
+    printf("Seventh\n");
     return finger_output_t {
         200,
         200,

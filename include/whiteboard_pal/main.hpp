@@ -6,6 +6,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/mat.hpp>
+#include <opencv2/imgproc.hpp>
 #include <boost/fiber/all.hpp>
 #include "cppflow/ops.h"
 #include "cppflow/model.h"
@@ -83,6 +84,7 @@ typedef boost::fibers::buffered_channel<finger_output_with_frame_t> finger_chan_
 typedef boost::fibers::buffered_channel<capture_size_t> cap_size_chan_t;
 typedef boost::fibers::buffered_channel<perf_info_t *> perf_chan_t;
 
+void print_point_vec(vector<Point> &vec);
 gesture_output_t gesture_detection(cppflow::model model, Mat frame, int i);
 finger_output_t finger_tracking(Mat frame, int i, deque<Point> &points);
 int input(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &broadcast_size);
