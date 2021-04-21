@@ -185,7 +185,9 @@ int finger(frame_chan_t &to_finger, finger_chan_t &from_finger) {
     deque <Point> points;
     while (boost::fibers::channel_op_status::success == to_finger.pop(frame)) {
         frame.perf->finger_start = chrono::steady_clock::now();
-        finger_output_t f = finger_tracking(frame.frame, frame.i, ref(points));
+        
+	finger_output_t f = finger_tracking(frame.frame, frame.i, ref(points));
+
         frame.perf->finger_end = chrono::steady_clock::now();
         from_finger.push(finger_output_with_frame_t { frame.frame, frame.perf, f });
     }
