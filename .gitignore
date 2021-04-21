@@ -10,3 +10,5 @@ cmake_install.cmake
 whiteboard_pal
 frame.jpg
 perf.csv
+opencv.zip
+opencv-contrib.zip
