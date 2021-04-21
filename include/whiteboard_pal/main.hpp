@@ -84,6 +84,6 @@ typedef boost::fibers::buffered_channel<capture_size_t> cap_size_chan_t;
 typedef boost::fibers::buffered_channel<perf_info_t *> perf_chan_t;
 
 gesture_output_t gesture_detection(cppflow::model model, Mat frame, int i);
-finger_output_t finger_tracking(Mat frame, int i);
+finger_output_t finger_tracking(Mat frame, int i, deque<point_t> &points);
 int input(frame_chan_t &to_finger, frame_chan_t &to_gesture, cap_size_chan_t &broadcast_size);
 int substrate(frame_chan_t &substrate_chan, cap_size_chan_t &broadcast_size, substrate_source_t source);

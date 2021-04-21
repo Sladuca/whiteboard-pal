@@ -6,7 +6,7 @@
 
 // frame: Matrix of the current frame in BGR24 format, that is, the mat entries are 3-bytes deep, each byte representing the B, G, R respectively
 // idx: index of the frame, if that's useful for some reason
-finger_output_t finger_tracking(Mat frame, int idx, deque<point_t> &points) {
+finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
     Mat hsv, hsv_range, erosion, morph, dialation, bw; /*bw bw bw bw bw bw*/
     Mat erosion_ele, morph_ele, dialation_ele;
     cvtColor(frame,hsv, COLOR_BGR2HSV);
@@ -33,17 +33,19 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<point_t> &points) {
     dilate(morph, dialation,dialation_ele);
     imshow("4: Dialation", dialation);
     //Dialation mask should be the noiseless binary output of hand position
+    
     // These two defines are located in cv::traits
     findContours(bw.clone(), contours, 0/*CV_RETR_EXTERNAL*/, 2/*CV_CHAIN_APPROX_SIMPLE*/);
     vector<Point> max_cont;
-    float max_cont_area = 0.0;
-    max_cont_idx = 0;
+    double max_cont_area = 0;
+    max_cont_idx         = 0;
+
     for(int i = 0; i< contours.size; i++){
-        float area = fabs(contourArea(contours[i]));
+        double area = fabs(contourArea(contours[i]));
 	if( area > max_cont_area){
-        max_cont_area = area;
-	max_cont = contours[i];
-	max_cont_idx = i;
+          max_cont_area = area;
+	  max_cont      = contours[i];
+	  max_cont_idx  = i;
       }
     }
     
@@ -53,13 +55,7 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<point_t> &points) {
     Moments m = moments(max_cont, true);
     cv::Point farthest_point;
     Point centroid(m.m10/m.m00, m.m01/m.m00);
-    for(int k = 0; k < max_cont.size; k++){
-      float new_dist = dist(centroid, max_cont[k]);
-      if(new_dist > old_dist){
-	old_dist = new_dist;
-        farthest_point = max_cont[k];
-      }
-    }
+    
     
     Mat contour_mat(frame.size(), CV_8UC3, Scalar(0,0,0));
     Scalar colors[3];
@@ -72,13 +68,16 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<point_t> &points) {
     //Slow method
     max_dist = 0;
     max_idx  = 0;
-    for(int i = 0; i< max_cont.length; i++){
-      int tmp = dist(max_cont[i]);
+    for(int i = 0; i< max_cont.size; i++){
+      tmp1 = (max_cont[i].x - centroid.x);
+      tmp2 = (max_cont[i].y - centroid.y);
+      int tmp = tmp1 * tmp1 + tmp2 * tmp2;
       if(tmp > max_dist){
         max_idx = i;
 	max_dist = tmp;
       }
     }
+
     points.push_back(max_cont[max_idx]);
     
     return finger_output_t {
