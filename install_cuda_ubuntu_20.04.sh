@@ -5,3 +5,4 @@ sudo dpkg -i cuda-repo-ubuntu2004-11-3-local_11.3.0-465.19.01-1_amd64.deb
 sudo apt-key add /var/cuda-repo-ubuntu2004-11-3-local/7fa2af80.pub
 sudo apt-get update
 sudo apt-get -y install cuda
+ls | grep -P "^cuda-repo-ubuntu2004-11-3-local" | xargs -d"\n" rm -rf
