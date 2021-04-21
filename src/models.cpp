@@ -38,8 +38,8 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
     findContours(bw.clone(), contours, 0/*CV_RETR_EXTERNAL*/, 2/*CV_CHAIN_APPROX_SIMPLE*/);
     vector<Point> max_cont;
     double max_cont_area = 0;
-    max_cont_idx         = 0;
-
+    int max_cont_idx         = 0;
+/*
     for(int i = 0; i< contours.size; i++){
         double area = fabs(contourArea(contours[i]));
 	if( area > max_cont_area){
@@ -48,7 +48,7 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
 	  max_cont_idx  = i;
       }
     }
-    
+  */  
     //Farthest point
     //New way to find max centroid
    
@@ -66,11 +66,11 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
 
     imshow("5: Contour Display", contour_mat);
     //Slow method
-    max_dist = 0;
-    max_idx  = 0;
-    for(int i = 0; i< max_cont.size; i++){
-      tmp1 = (max_cont[i].x - centroid.x);
-      tmp2 = (max_cont[i].y - centroid.y);
+    int max_dist = 0;
+    int max_idx  = 0;
+    for(int i = 0; i< max_cont.size(); i++){
+      int tmp1 = (max_cont[i].x - centroid.x);
+      int tmp2 = (max_cont[i].y - centroid.y);
       int tmp = tmp1 * tmp1 + tmp2 * tmp2;
       if(tmp > max_dist){
         max_idx = i;
