@@ -182,7 +182,7 @@ int gesture(frame_chan_t &to_gesture, gesture_chan_t &from_gesture) {
 
 int finger(frame_chan_t &to_finger, finger_chan_t &from_finger) {
     frame_with_idx_t frame;
-    deque <point_t> points;
+    deque <Point> points;
     while (boost::fibers::channel_op_status::success == to_finger.pop(frame)) {
         frame.perf->finger_start = chrono::steady_clock::now();
         finger_output_t f = finger_tracking(frame.frame, frame.i, &points);
