@@ -6,7 +6,7 @@
 
 // frame: Matrix of the current frame in BGR24 format, that is, the mat entries are 3-bytes deep, each byte representing the B, G, R respectively
 // idx: index of the frame, if that's useful for some reason
-finger_output_t finger_tracking(Mat frame, int idx/*, std::deque<point> points*/) {
+finger_output_t finger_tracking(Mat frame, int idx, deque<point_t> &points) {
     Mat hsv, hsv_range, erosion, morph, dialation, bw; /*bw bw bw bw bw bw*/
     Mat erosion_ele, morph_ele, dialation_ele;
     cvtColor(frame,hsv, COLOR_BGR2HSV);
@@ -25,19 +25,25 @@ finger_output_t finger_tracking(Mat frame, int idx/*, std::deque<point> points*/
     dialation_ele  = getStructuringElement(0/*Morph Rect*/,
 		                           Size(2*DIALATION_SIZE+1,2*DIALATION_SIZE+1),
 					   Point(DIALATION_SIZE,DIALATION_SIZE));
+    imshow("1: HSV_Image", hsv);
     erode(hsv,erosion,erosion_ele);
+    imshow("2: Erpsion", erosion);
     morphologyEx(erosion, morph, 2 /*MORPH_OPEN*/, morph_ele);
+    imshow("3: Morph Cleanup", morph);
     dilate(morph, dialation,dialation_ele);
+    imshow("4: Dialation", dialation);
     //Dialation mask should be the noiseless binary output of hand position
     // These two defines are located in cv::traits
     findContours(bw.clone(), contours, 0/*CV_RETR_EXTERNAL*/, 2/*CV_CHAIN_APPROX_SIMPLE*/);
     vector<Point> max_cont;
     float max_cont_area = 0.0;
+    max_cont_idx = 0;
     for(int i = 0; i< contours.size; i++){
         float area = fabs(contourArea(contours[i]));
 	if( area > max_cont_area){
         max_cont_area = area;
 	max_cont = contours[i];
+	max_cont_idx = i;
       }
     }
     
@@ -55,7 +61,25 @@ finger_output_t finger_tracking(Mat frame, int idx/*, std::deque<point> points*/
       }
     }
     
-    
+    Mat contour_mat(frame.size(), CV_8UC3, Scalar(0,0,0));
+    Scalar colors[3];
+    colors[0] = Scalar(255,0,0);
+    colors[1] = Scalar(0,255,0);
+    colors[2] = Scalar(0,0,255);
+    drawContours(contour_mat,contours, max_cont_idx,colors[0]);
+
+    imshow("5: Contour Display", contour_mat);
+    //Slow method
+    max_dist = 0;
+    max_idx  = 0;
+    for(int i = 0; i< max_cont.length; i++){
+      int tmp = dist(max_cont[i]);
+      if(tmp > max_dist){
+        max_idx = i;
+	max_dist = tmp;
+      }
+    }
+    points.push_back(max_cont[max_idx]);
     
     return finger_output_t {
         200,
