@@ -16,6 +16,7 @@ whiteboard-pal/opencv_contrib.zip
 whiteboard-pal/opencv
 whiteboard-pal/opencv_contrib-master
 whiteboard-pal/opencv-master
+whiteboard-pal/libtensorflow
 mediapipe/bazel-*
 mediapipe/mediapipe/MediaPipe.xcodeproj
 mediapipe/MediaPipe.tulsiproj/*.tulsiconf-user
