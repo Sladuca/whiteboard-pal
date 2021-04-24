@@ -128,7 +128,7 @@ void print_mat_type(int type) {
   cout << "CAP_PROP_FORMAT: " << r << "\n";
 }
 
-int input_inner(frame_chan_t &frame_chan, VideoCapture cap) {
+int input_inner(frame_chan_t &frame_chan, VideoCapture cap, int width, int height) {
     Mat frame;
     while (true) {
         cap.read(frame);
@@ -138,6 +138,8 @@ int input_inner(frame_chan_t &frame_chan, VideoCapture cap) {
             frame_chan.close();
             return -1;
         }
+
+        resize(frame, frame, Size(width, height), 0, 0, CV_INTER_LINEAR);
 
         frame_chan.push(frame);
     }
@@ -153,6 +155,8 @@ int input_inner_fiber(frame_chan_t &frame_chan, VideoCapture cap) {
 // https://stackoverflow.com/questions/24988164/c-fast-screenshots-in-linux-for-use-with-opencv
 std::pair<std::pair<int, int>, thread> input(frame_chan_t &camera_chan) {
     VideoCapture cap(0, CAP_V4L);
+
+    cap.set(CAP_PROP_CONVERT_RGB, 1);
     
     if (not cap.isOpened()) {
         cerr << "ERROR: failed to open camera!\n";
@@ -165,13 +169,13 @@ std::pair<std::pair<int, int>, thread> input(frame_chan_t &camera_chan) {
     print_fourcc(fourcc);
     print_mat_type(format);
 
-    size_t width = cap.get(CAP_PROP_FRAME_WIDTH);
-    size_t height = cap.get(CAP_PROP_FRAME_HEIGHT);
+    size_t width = 480;
+    size_t height = 640; 
 
-    thread t(input_inner(camera_chan, cap));
+    thread t(input_inner(camera_chan, cap, width, height));
 
     std::pair<int, int> size = std::make_pair(height, width);
-    return std::make_pair(size, t);
+    return make_pair(size, t);
 }
 
 int main() {
