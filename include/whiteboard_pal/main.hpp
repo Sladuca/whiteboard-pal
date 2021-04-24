@@ -7,6 +7,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/core/hal/intrin.hpp>
+//#include <opencv2/contours.cpp>
 #include <boost/fiber/all.hpp>
 #include "cppflow/ops.h"
 #include "cppflow/model.h"

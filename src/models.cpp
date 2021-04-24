@@ -11,10 +11,39 @@ void print_point_vec(vector<Point> &vec){
     printf("Vector Size: %ld\n",vec.size());
 }
 
+
+string type2str(int type) {
+  string r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  return r;
+}
+
+
+
+
+
+
 // frame: Matrix of the current frame in BGR24 format, that is, the mat entries are 3-bytes deep, each byte representing the B, G, R respectively
 // idx: index of the frame, if that's useful for some reason
 finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
-    Mat hsv, hsv_range, erosion, morph, dialation, bw; /*bw bw bw bw bw bw*/
+    Mat hsv, hsv_range, erosion, morph, dialation, bw, gray; /*bw bw bw bw bw bw*/
     Mat erosion_ele, morph_ele, dialation_ele;
     cvtColor(frame,hsv, COLOR_BGR2HSV);
     
@@ -42,10 +71,21 @@ finger_output_t finger_tracking(Mat frame, int idx, deque<Point> &points) {
     dilate(morph, dialation,dialation_ele);
     imshow("4: Dialation", dialation);
     //Dialation mask should be the noiseless binary output of hand position
+    
+    string ty =  type2str( dialation.type() );
+    printf("Matrix: %s %dx%d \n", ty.c_str(), dialation.cols, dialation.rows );
+    
     printf("Third\n");
     // These two defines are located in cv::traits
-    cvStartFindContours_Impl(frame, contours, 0/*CV_RETR_EXTERNAL*/, 2/*CV_CHAIN_APPROX_SIMPLE*/);
-
+    //cvStartFindContours_Impl(frame, contours, 0/*CV_RETR_EXTERNAL*/, 2/*CV_CHAIN_APPROX_SIMPLE*/);
+    //cvtColor(dialation, gray, Imgproc.CV_BGR2GRAY);
+    printf("This is the type of matrix it is %s \n", CV_MAT_TYPE(dialation));
+    //if(CV_MAT_TYPE(dialation) == CV_32SC1) printf("Radical Re\n\n");
+   
+    Mat hsv_channels[3];
+    split(dialation,hsv_channels);
+    
+    findContours(hsv_channels[2], contours, 0 /*CV_RETR_EXTERNAL*/, 2 /*CV_CHAIN_APPROX_SIMPLE*/);
     vector<Point> max_cont;
     double max_cont_area = 0;
     int max_cont_idx     = 0;
