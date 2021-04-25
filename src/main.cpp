@@ -103,7 +103,7 @@ int output_inner_fiber(frame_chan_t &frame_chan, loopback_info_t lb) {
     return 0;
 }
 
-std::optional<thread> output(frame_chan_t &frame_chan, int width, int height) {
+optional<thread> output(frame_chan_t &frame_chan, int width, int height) {
     loopback_info_t lb;
     int res = configure_loopback(&lb, width, height);
     if (res < 0) {
@@ -142,7 +142,7 @@ void print_mat_type(int type) {
   cout << "CAP_PROP_FORMAT: " << r << "\n";
 }
 
-int input_inner(frame_chan_t &frame_chan, VideoCapture cap, int width, int height) {
+int input_inner(frame_chan_t &frame_chan, VideoCapture &cap, int width, int height) {
     Mat frame;
     while (true) {
         cap.read(frame);
@@ -160,14 +160,14 @@ int input_inner(frame_chan_t &frame_chan, VideoCapture cap, int width, int heigh
     frame_chan.close();
 }
 
-int input_inner_fiber(frame_chan_t &frame_chan, VideoCapture cap) {
-    boost::fibers::fiber f(bind(input_inner, ref(frame_chan), ref(cap)));
+int input_inner_fiber(frame_chan_t &frame_chan, VideoCapture cap, int width, int height) {
+    boost::fibers::fiber f(bind(input_inner, ref(frame_chan), ref(cap), width, height));
     f.join();
     return 0;
 }
 
 // https://stackoverflow.com/questions/24988164/c-fast-screenshots-in-linux-for-use-with-opencv
-std::pair<std::pair<int, int>, thread> input(frame_chan_t &camera_chan) {
+pair<pair<int, int>, thread> input(frame_chan_t &camera_chan) {
     VideoCapture cap(0, CAP_V4L);
 
     cap.set(CAP_PROP_CONVERT_RGB, 1);
@@ -189,20 +189,20 @@ std::pair<std::pair<int, int>, thread> input(frame_chan_t &camera_chan) {
     cap.set(CAP_PROP_FRAME_HEIGHT, height);
     cap.set(CAP_PROP_FPS, 30);
 
-    thread t(input_inner(camera_chan, cap, width, height));
+    thread t(input_inner_fiber, ref(camera_chan), move(cap), width, height);
 
-    std::pair<int, int> size = std::make_pair(height, width);
-    return make_pair(size, t);
+    pair<int, int> size = make_pair(height, width);
+    return make_pair(move(size), move(t));
 }
 
 
-ABSL_FLAG(std::string, calculator_graph_config_file, "",
+ABSL_FLAG(string, calculator_graph_config_file, "",
           "Name of file containing text format CalculatorGraphConfig proto.");
 
 absl::Status main_inner() {
 
     LOG(INFO) << "Loading calculator graph file: ";
-    std::string calculator_graph_config_contents;
+    string calculator_graph_config_contents;
     MP_RETURN_IF_ERROR(mediapipe::file::GetContents(
         absl::GetFlag(FLAGS_calculator_graph_config_file),
         &calculator_graph_config_contents));
@@ -233,16 +233,16 @@ absl::Status main_inner() {
 
     int height = input_size_and_thread.first.first;
     int width = input_size_and_thread.first.second;
-    thread input_thread = std::move(input_size_and_thread.second);
+    thread input_thread = move(input_size_and_thread.second);
 
 
     LOG(INFO) << "Starting output thread: ";
     frame_chan_t output_frame_chan { 2 };
-    std::optional<thread> output_thread_wrapped = output(output_frame_chan, width, height);
+    optional<thread> output_thread_wrapped = output(output_frame_chan, width, height);
 
     LOG(INFO) << "Check to see if output initialization succeded";
     RET_CHECK(output_thread_wrapped.has_value());
-    thread output_thread = std::move(output_thread_wrapped.value());
+    thread output_thread = move(output_thread_wrapped.value());
 
 
     LOG(INFO) << "Starting main loop: ";
