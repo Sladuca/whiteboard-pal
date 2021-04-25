@@ -17,10 +17,10 @@ opencv
 opencv_contrib-master
 opencv-master
 libtensorflow
-mediapipe/bazel-*
-mediapipe/mediapipe/MediaPipe.xcodeproj
-mediapipe/MediaPipe.tulsiproj/*.tulsiconf-user
-mediapipe/mediapipe/provisioning_profile.mobileprovision
-mediapipe/.configure.bazelrc
-mediapipe/.user.bazelrc
-mediapipe/env
+bazel-*
+mediapipe/MediaPipe.xcodeproj
+MediaPipe.tulsiproj/*.tulsiconf-user
+mediapipe/provisioning_profile.mobileprovision
+.configure.bazelrc
+.user.bazelrc
+env
