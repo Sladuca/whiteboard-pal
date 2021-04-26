@@ -7,7 +7,6 @@ cmake_install.cmake
 /.vs
 /out
 .jpg
-whiteboard_pal
 frame.jpg
 perf.csv
 build
