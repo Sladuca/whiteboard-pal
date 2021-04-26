@@ -5,13 +5,13 @@
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
+#include "mediapipe/framework/formats/landmark.pb.h"
 
 namespace mediapipe {
 
-    constexpr char DETECTIONS_TAG[] = "DETECTIONS";
     constexpr char LANDMARKS_TAG[] = "LANDMARKS";
-    constexpr char HANDEDNESS_TAG[] = "HANDEDNESS";
-    constexpr char NORM_RECTS_TAG[] = "NORM_RECTS";
+    // don't care about handedness for now
+    // constexpr char HANDEDNESS_TAG[] = "HANDEDNESS";
     constexpr char COORDS_TAG[] = "COORDS";
     constexpr char HAS_GESTURE_TAG[] = "HAS_GESTURE";
 
@@ -19,9 +19,15 @@ namespace mediapipe {
     constexpr std::pair<int, int> stub_coords = std::make_pair(100, 100);
     constexpr bool stub_has_gesture = true;
 
-    class WhiteboadPalGestureDetectionCalculator: public CalculatorBase {
+    class WhiteboardPalGestureDetectionCalculator: public CalculatorBase {
         public: 
             static absl::Status GetContract(CalculatorContract* cc) {
+                // set types for landmark inputs
+                cc->Inputs().Tag(LANDMARKS_TAG).Set<std::vector<NormalizedLandmarkList, std::allocator<NormalizedLandmarkList>>>();
+                // set types for output streams
+                cc->Outputs().Tag(COORDS_TAG).Set<std::pair<int, int>>();
+                cc->Outputs().Tag(HAS_GESTURE_TAG).Set<bool>();
+
                 return absl::OkStatus();
             }
 
@@ -39,5 +45,5 @@ namespace mediapipe {
             }
 
     };
-    REGISTER_CALCULATOR(WhiteboadPalGestureDetectionCalculator);
+    REGISTER_CALCULATOR(WhiteboardPalGestureDetectionCalculator);
 }

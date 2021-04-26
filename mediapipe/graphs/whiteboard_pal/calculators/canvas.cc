@@ -23,7 +23,10 @@ namespace mediapipe {
         public: 
             static absl::Status GetContract(CalculatorContract* cc) {
                 cc->Inputs().Tag(DRAW_COORDS_TAG).Set<std::pair<int, int>>();
+                cc->Inputs().Tag(HAS_GESTURE_TAG).Set<bool>();
                 cc->Inputs().Tag(SUBSTRATE_TAG).Set<cv::Mat>();
+                cc->InputSidePackets().Tag(FRAME_WIDTH_TAG).Set<int>();
+                cc->InputSidePackets().Tag(FRAME_HEIGHT_TAG).Set<int>();
                 cc->Outputs().Tag(DRAWN_FRAME_TAG).Set<cv::Mat>();
                 return absl::OkStatus();
             }
