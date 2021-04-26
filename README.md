@@ -25,5 +25,4 @@ run `./init_device`.
 `bazel build -c opt --define MEDIAPIPE_DISABLE_GPU=1 src:whiteboard_pal`
 
 ## Run
-`GLOG_logtostderr=1 ./bazel-bin/src/whiteboard_pal \
-  --calculator_graph_config_file=mediapipe/graphs/whiteboard_pal/whiteboard_pal.pbtxt`
+`GLOG_logtostderr=1 ./bazel-bin/src/whiteboard_pal --calculator_graph_config_file=mediapipe/graphs/whiteboard_pal/whiteboard_pal.pbtxt`
