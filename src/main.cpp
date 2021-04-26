@@ -76,7 +76,7 @@ int output_inner(frame_chan_t &frame_chan, loopback_info_t &lb) {
     while (true) {
         Mat frame;
         if (boost::fibers::channel_op_status::success != frame_chan.pop(frame)) {
-            cerr << "ERROR: failed to recv frame from main loop!";
+            LOG(ERROR) << "ERROR: failed to recv frame from main loop: ";
             close(lb.fd);
             frame_chan.close();
             return -1;
@@ -87,7 +87,7 @@ int output_inner(frame_chan_t &frame_chan, loopback_info_t &lb) {
         size_t bytes_written = write(lb.fd, frame.data, lb.framesize);
 
         if (bytes_written < 0) {
-            cerr << "ERROR: failed to write frame to loopback device!";
+            LOG(ERROR) << "ERROR: failed to write frame to loopback device!";
             close(lb.fd);
             frame_chan.close();
             return -2;
@@ -116,7 +116,7 @@ optional<thread> output(frame_chan_t &frame_chan, int width, int height) {
 
 void print_fourcc(int fourcc) {
     string fourcc_str = format("%c%c%c%c", fourcc & 255, (fourcc >> 8) & 255, (fourcc >> 16) & 255, (fourcc >> 24) & 255);
-    cout << "CAP_PROP_FOURCC: " << fourcc_str << endl;
+    LOG(INFO) << "CAP_PROP_FOURCC: " << fourcc_str << endl;
 }
 
 void print_mat_type(int type) {
@@ -139,7 +139,7 @@ void print_mat_type(int type) {
   r += "C";
   r += (chans+'0');
 
-  cout << "CAP_PROP_FORMAT: " << r << "\n";
+  LOG(INFO) << "CAP_PROP_FORMAT: " << r << "\n";
 }
 
 int input_inner(frame_chan_t &frame_chan, VideoCapture &cap, int width, int height) {
@@ -148,7 +148,7 @@ int input_inner(frame_chan_t &frame_chan, VideoCapture &cap, int width, int heig
         cap.read(frame);
 
         if (frame.empty()) {
-            cerr << "ERROR: failed to read frame!";
+            LOG(ERROR) << "ERROR: failed to read frame!";
             frame_chan.close();
             return -1;
         }
@@ -173,7 +173,7 @@ pair<pair<int, int>, thread> input(frame_chan_t &camera_chan) {
     cap.set(CAP_PROP_CONVERT_RGB, 1);
     
     if (not cap.isOpened()) {
-        cerr << "ERROR: failed to open camera!\n";
+        LOG(ERROR) << "ERROR: failed to open camera!\n";
         camera_chan.close();
         exit(-2);
     }
@@ -238,7 +238,7 @@ absl::Status main_inner() {
 
     LOG(INFO) << "Starting output thread: ";
     frame_chan_t output_frame_chan { 2 };
-    optional<thread> output_thread_wrapped = output(output_frame_chan, width, height);
+    optional<thread> output_thread_wrapped = output(ref(output_frame_chan), width, height);
 
     LOG(INFO) << "Check to see if output initialization succeded";
     RET_CHECK(output_thread_wrapped.has_value());
@@ -271,25 +271,29 @@ absl::Status main_inner() {
             GRAPH_INPUT_STREAM_NAME, mediapipe::Adopt(input_frame_packet.release())
                             .At(mediapipe::Timestamp(frame_in_timestamp_us))));
 
+        LOG(INFO) << "Sent frame to mediapipe";
+
         // Get next output packet from the mediapipe graph and immediately return if it fails
         // blocks until complete
         mediapipe::Packet packet;
         if (!poller.Next(&packet)) break;
-        auto& output_frame_packet = packet.Get<mediapipe::ImageFrame>();
 
-        // unwrap "ImageFrame" packet back into a cv::Mat and send it to the output thread]
-        // blocks if output_frame_chan's internal buffer is full
-        Mat output_frame = mediapipe::formats::MatView(&output_frame_packet);
+        LOG(INFO) << "Got frame from mediapipe";
+
+        auto& output_frame = packet.Get<Mat>();
+
         if (boost::fibers::channel_op_status::success != output_frame_chan.push(output_frame)) {
             LOG(ERROR) << "ERROR: failed to send mediapipe output frame to output thread!\n";
             break;
         }
     }
 
+    LOG(INFO) << "Exited main loop";
+
     camera_chan.close();
     output_frame_chan.close();
-    input_thread.join();
     output_thread.join();
+    input_thread.join();
     return absl::OkStatus();
 }
 

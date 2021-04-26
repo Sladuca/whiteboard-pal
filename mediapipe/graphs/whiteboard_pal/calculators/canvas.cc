@@ -4,6 +4,9 @@
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
+#include "mediapipe/framework/formats/image.h"
+#include "mediapipe/framework/formats/image_frame.h"
+#include "mediapipe/framework/formats/image_frame_opencv.h"
 
 namespace mediapipe {
 
@@ -24,7 +27,7 @@ namespace mediapipe {
             static absl::Status GetContract(CalculatorContract* cc) {
                 cc->Inputs().Tag(DRAW_COORDS_TAG).Set<std::pair<int, int>>();
                 cc->Inputs().Tag(HAS_GESTURE_TAG).Set<bool>();
-                cc->Inputs().Tag(SUBSTRATE_TAG).Set<cv::Mat>();
+                cc->Inputs().Tag(SUBSTRATE_TAG).Set<ImageFrame>();
                 cc->InputSidePackets().Tag(FRAME_WIDTH_TAG).Set<int>();
                 cc->InputSidePackets().Tag(FRAME_HEIGHT_TAG).Set<int>();
                 cc->Outputs().Tag(DRAWN_FRAME_TAG).Set<cv::Mat>();
@@ -43,28 +46,19 @@ namespace mediapipe {
                 this->color = cv::Scalar(255, 0, 0);
                 this->dot_width = 5;
                 this->canvas = cv::Mat::zeros(size.first, size.second, CV_8UC1);
+
                 return absl::OkStatus();
             }
 
             // ! expects the substrate mat to be in RGB format
             absl::Status Process(CalculatorContext* cc) {
-                // throw an error if no coords
-                RET_CHECK(cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty());
+                // throw an error if any inputs not present
+                RET_CHECK(!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty());
+                RET_CHECK(!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty());
+                RET_CHECK(!cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty());
 
-                auto output_frame = absl::make_unique<cv::Mat>();
 
-                // if no substrate, substrate is blank white
-                if (cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty()) {
-                    *output_frame.get() = cv::Mat(
-                        this->size.first,
-                        this->size.second,
-                        CV_8UC3, 
-                        cv::Scalar(255, 255, 255)
-                    );
-                } else {
-                    *output_frame.get() = cc->Inputs().Tag(SUBSTRATE_TAG).Get<cv::Mat>();
-                }
-
+                auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
 
                 // only update the canvas if gesture is detected
                 if (!cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>()) {
@@ -74,8 +68,12 @@ namespace mediapipe {
                 }
 
                 // apply substrate to the image and send
+                auto output_frame = absl::make_unique<cv::Mat>(formats::MatView(&substrate_packet));
                 output_frame.get()->setTo(this->color, this->canvas);
+
                 cc->Outputs().Tag(DRAWN_FRAME_TAG).Add(output_frame.release(), cc->InputTimestamp());
+
+                return absl::OkStatus();
             }
 
         private:

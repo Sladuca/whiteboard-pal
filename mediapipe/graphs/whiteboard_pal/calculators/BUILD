@@ -5,6 +5,9 @@ cc_library(
     srcs = ["canvas.cc"],
     visibility = ["//visibility:public"],
     deps = [
+        "//mediapipe/framework/formats:image_frame_opencv",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image",
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework:calculator_options_cc_proto",
         "//mediapipe/framework/port:ret_check",
