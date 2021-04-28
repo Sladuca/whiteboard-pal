@@ -163,8 +163,10 @@ int input_inner(frame_chan_t &frame_chan, VideoCapture &cap, int width, int heig
         }
 
         resize(frame, frame, Size(width, height), 0, 0, CV_INTER_LINEAR);
+        cvtColor(frame, frame, COLOR_BGR2RGB);
         
         flip(frame, frame, 1);
+
 
         frame_chan.push(frame);
     }
@@ -181,7 +183,7 @@ int input_inner_fiber(frame_chan_t &frame_chan, VideoCapture cap, int width, int
 pair<pair<int, int>, thread> input(frame_chan_t &camera_chan) {
     VideoCapture cap(0, CAP_V4L);
 
-    cap.set(CAP_PROP_CONVERT_RGB, 1);
+    // cap.set(CAP_PROP_CONVERT_RGB, 1);
     
     if (not cap.isOpened()) {
         LOG(ERROR) << "ERROR: failed to open camera!\n";
