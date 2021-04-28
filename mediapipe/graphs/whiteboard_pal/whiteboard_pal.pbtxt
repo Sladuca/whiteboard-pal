@@ -40,10 +40,21 @@ node {
     }
 }
 
+node {
+  calculator: "FlowLimiterCalculator"
+  input_stream: "input_video"
+  input_stream: "FINISHED:landmarks"
+  input_stream_info: {
+    tag_index: "FINISHED"
+    back_edge: true
+  }
+  output_stream: "throttled_input_video"
+}
+
 # Detects/tracks hand landmarks.
 node {
   calculator: "HandLandmarkTrackingCpu"
-  input_stream: "IMAGE:input_video"
+  input_stream: "IMAGE:throttled_input_video"
   input_side_packet: "NUM_HANDS:num_hands"
   output_stream: "LANDMARKS:landmarks"
 }
@@ -62,7 +73,7 @@ node {
     calculator: "WhiteboardPalCanvasCalculator"
     input_stream: "DRAW_COORDS:finger_coords"
     input_stream: "HAS_GESTURE:has_gesture"
-    input_stream: "SUBSTRATE:input_video"
+    input_stream: "SUBSTRATE:throttled_input_video"
     input_side_packet: "FRAME_WIDTH:frame_width"
     input_side_packet: "FRAME_HEIGHT:frame_height"
     output_stream: "DRAWN_FRAME:output_video"

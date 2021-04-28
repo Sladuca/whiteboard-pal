@@ -92,7 +92,7 @@ int output_inner(frame_chan_t &frame_chan, loopback_info_t lb) {
         long bytes_written = write(lb.fd, frame.data, lb.framesize);
 
 
-        LOG(INFO) << "wrote " << bytes_written << " bytes";
+        // LOG(INFO) << "wrote " << bytes_written << " bytes";
         // LOG(INFO) << "errno: " << strerror(errno);
 
         if (bytes_written < 0) {
@@ -283,7 +283,7 @@ absl::Status main_inner() {
             GRAPH_INPUT_STREAM_NAME, mediapipe::Adopt(input_frame_packet.release())
                             .At(mediapipe::Timestamp(frame_in_timestamp_us))));
 
-        LOG(INFO) << "Sent frame to mediapipe";
+        // LOG(INFO) << "Sent frame to mediapipe";
 
         // Get next output packet from the mediapipe graph and immediately return if it fails
         // blocks until complete
