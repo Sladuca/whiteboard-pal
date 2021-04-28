@@ -88,6 +88,7 @@ int output_inner(frame_chan_t &frame_chan, loopback_info_t lb) {
 
         // convert back to yuv420
         cvtColor(frame, frame, COLOR_RGB2YUV_I420);
+        flip(frame, frame, 1);
         long bytes_written = write(lb.fd, frame.data, lb.framesize);
 
 

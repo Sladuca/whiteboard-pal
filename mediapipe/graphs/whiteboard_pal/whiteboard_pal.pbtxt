@@ -10,6 +10,13 @@ input_stream: "input_video"
 # CPU image. (ImageFrame)
 output_stream: "output_video"
 
+profiler_config {
+  trace_enabled: true
+  enable_profiler: true
+  trace_log_interval_count: 200
+  trace_log_path: "./logs/"
+}
+
 # Generates side packet cotaining max number of hands to detect/track.
 node {
   calculator: "ConstantSidePacketCalculator"

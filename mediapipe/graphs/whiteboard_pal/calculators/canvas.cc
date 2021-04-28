@@ -67,12 +67,12 @@ namespace mediapipe {
                 LOG(INFO) << "frame height: " << height;
                 LOG(INFO) << "frame width: " << width;
 
-                this->size = std::make_pair(height, width);
+                this->size = std::make_pair(width, height);
 
                 // TODO: add a packet for this so you can change the color and/or pen width at any time
                 this->color = cv::Scalar(255, 0, 0);
                 this->dot_width = 5;
-                this->canvas = cv::Mat::zeros(size.first, size.second, CV_8U);
+                this->canvas = cv::Mat::zeros(size.second, size.first, CV_8U);
 
                 LOG(INFO) << "returning from canvas.Open";
                 return absl::OkStatus();
@@ -98,8 +98,8 @@ namespace mediapipe {
                     // LOG(INFO) << "3";
                     // only update the canvas if gesture is detected
                     std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
-                    std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.second),
-                        (int)(coords.second * (float)this->size.first));
+                    std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.first),
+                        (int)(coords.second * (float)this->size.second));
                     // LOG(INFO) << "pair int: " << coords_int.first << coords_int.second;
                     this->update_canvas(coords_int);
                 }
@@ -121,7 +121,7 @@ namespace mediapipe {
                 LOG(INFO) << "canvas calculator update\n";
 
                 if (coords.first < this->dot_width / 2) {
-                coords.first = this->dot_width / 2;
+                    coords.first = this->dot_width / 2;
                 }
                 if (coords.second < this->dot_width / 2) {
                     coords.second = this->dot_width / 2;

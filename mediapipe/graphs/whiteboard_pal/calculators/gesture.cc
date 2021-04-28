@@ -40,7 +40,7 @@ namespace mediapipe {
                 const auto &landmark_vec = cc->Inputs().Tag(LANDMARKS_TAG).Get<std::vector<NormalizedLandmarkList,
                                                                         std::allocator<NormalizedLandmarkList>>>();
                 const auto landmark_list = landmark_vec[0];
-                LOG(INFO) << "got landmark list" << "\n";
+                // LOG(INFO) << "got landmark list" << "\n";
 
                 //get finger coordinates
                 //index finger
@@ -72,8 +72,8 @@ namespace mediapipe {
                 auto coords = absl::make_unique<std::pair<float, float>>();
                 auto has_gesture = absl::make_unique<bool>();
 
-                coords->first = index_y;
-                coords->second = index_x;
+                coords->first = index_x;
+                coords->second = index_y;
                 *has_gesture = is_gesture;
                 
                 // LOG(INFO) << "c";
