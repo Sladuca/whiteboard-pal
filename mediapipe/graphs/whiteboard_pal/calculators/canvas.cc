@@ -73,7 +73,7 @@ namespace mediapipe {
                     std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
                     std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.second),
                         (int)(coords.second * (float)this->size.first));
-                    this->update_canvas(coords);
+                    this->update_canvas(coords_int);
                 }
 
                 // apply canvas to the image and send
