@@ -103,7 +103,7 @@ def farthest_point(defects, contour, centroid):
         xp = cv2.pow(cv2.subtract(x, cx), 2)
         yp = cv2.pow(cv2.subtract(y, cy), 2)
         dist = cv2.sqrt(cv2.add(xp, yp))
-        print(xp)
+        #print(xp)
         dist_max_i = np.argmax(dist)
         
         if dist_max_i < len(s):
@@ -140,8 +140,10 @@ def manage_image_opr(frame, hand_hist, points, draw_mode):
                                  "Color detectors")
     Upper_hsv = np.array([u_hue, u_saturation, u_value])
     Lower_hsv = np.array([l_hue, l_saturation, l_value])
-        
+    print(Upper_hsv)    
+    print(Lower_hsv)    
     kernel = np.ones((5, 5), np.uint8)
+    print(kernel)
     Mask = cv2.inRange(hsv, Lower_hsv, Upper_hsv)
     Mask = cv2.erode(Mask, kernel, iterations = 1)
     Mask = cv2.morphologyEx(Mask, cv2.MORPH_OPEN, kernel)
