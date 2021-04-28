@@ -23,8 +23,9 @@ namespace mediapipe {
         std::pair<int, int> size;
         int dot_width;
 
-        public: 
+        public:
             static absl::Status GetContract(CalculatorContract* cc) {
+                LOG(INFO) << "canvas calculator get contract\n";
                 cc->Inputs().Tag(DRAW_COORDS_TAG).Set<std::pair<int, int>>();
                 cc->Inputs().Tag(HAS_GESTURE_TAG).Set<bool>();
                 cc->Inputs().Tag(SUBSTRATE_TAG).Set<ImageFrame>();
@@ -57,13 +58,14 @@ namespace mediapipe {
                 RET_CHECK(!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty());
                 RET_CHECK(!cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty());
 
-
                 auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
 
                 // only update the canvas if gesture is detected
                 if (!cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>()) {
-                    std::pair<int, int> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<int, int>>();
-                    this->update_canvas(coords);
+                    std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
+                    std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.second),
+                        (int)(coords.second * (float)this->size.first));
+                    this->update_canvas(coords_int);
                     return absl::OkStatus();
                 }
 
@@ -72,13 +74,13 @@ namespace mediapipe {
                 output_frame.get()->setTo(this->color, this->canvas);
 
                 cc->Outputs().Tag(DRAWN_FRAME_TAG).Add(output_frame.release(), cc->InputTimestamp());
-
                 return absl::OkStatus();
             }
 
         private:
             void update_canvas(std::pair<int, int> coords) {
-                
+                LOG(INFO) << "canvas calculator update\n";
+
                 if (coords.first < this->dot_width / 2) {
                 coords.first = this->dot_width / 2;
                 }
@@ -109,4 +111,3 @@ namespace mediapipe {
     };
     REGISTER_CALCULATOR(WhiteboardPalCanvasCalculator);
 }
-
