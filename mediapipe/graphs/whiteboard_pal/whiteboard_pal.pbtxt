@@ -27,8 +27,8 @@ node {
     output_side_packet: "PACKET:1:frame_height"
     node_options: {
       [type.googleapis.com/mediapipe.ConstantSidePacketCalculatorOptions]: {
-        packet { int_value: 480 }
         packet { int_value: 640 }
+        packet { int_value: 480 }
       }
     }
 }
@@ -47,7 +47,7 @@ node {
   calculator: "WhiteboardPalGestureDetectionCalculator"
   input_stream: "LANDMARKS:landmarks"
   # input_stream: "HANDEDNESS:handedness" don't care about handedness rn
-  output_stream: "COORDS:finger_coords"
+  output_stream: "DRAW_COORDS:finger_coords"
   output_stream: "HAS_GESTURE:has_gesture"
 }
 

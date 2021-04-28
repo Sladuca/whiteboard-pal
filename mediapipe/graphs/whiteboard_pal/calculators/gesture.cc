@@ -12,12 +12,8 @@ namespace mediapipe {
     constexpr char LANDMARKS_TAG[] = "LANDMARKS";
     // don't care about handedness for now
     // constexpr char HANDEDNESS_TAG[] = "HANDEDNESS";
-    constexpr char COORDS_TAG[] = "COORDS";
+    constexpr char COORDS_TAG[] = "DRAW_COORDS";
     constexpr char HAS_GESTURE_TAG[] = "HAS_GESTURE";
-
-    // for stub usage
-    constexpr std::pair<int, int> stub_coords = std::make_pair(100, 100);
-    constexpr bool stub_has_gesture = true;
 
     class WhiteboardPalGestureDetectionCalculator: public CalculatorBase {
         public: 
@@ -39,8 +35,15 @@ namespace mediapipe {
 
             // ! expects the substrate mat to be in RGB format
             absl::Status Process(CalculatorContext* cc) {
-                cc->Outputs().Tag(COORDS_TAG).Add(&stub_coords, cc->InputTimestamp());
-                cc->Outputs().Tag(HAS_GESTURE_TAG).Add(&stub_has_gesture, cc->InputTimestamp());
+                auto stub_coords = absl::make_unique<std::pair<int, int>>();
+                stub_coords->first = 100;
+                stub_coords->second = 100;
+
+                auto stub_has_gesture = absl::make_unique<bool>();
+                *(stub_has_gesture.get()) = true;
+
+                cc->Outputs().Tag(COORDS_TAG).Add(stub_coords.release(), cc->InputTimestamp());
+                cc->Outputs().Tag(HAS_GESTURE_TAG).Add(stub_has_gesture.release(), cc->InputTimestamp());
                 return absl::OkStatus();
             }
 
