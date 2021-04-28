@@ -41,35 +41,42 @@ namespace mediapipe {
                 int width = cc->InputSidePackets().Tag(FRAME_WIDTH_TAG).Get<int>();
                 int height = cc->InputSidePackets().Tag(FRAME_HEIGHT_TAG).Get<int>();
 
+                LOG(INFO) << "frame height: " << height;
+                LOG(INFO) << "frame width: " << width;
+
                 this->size = std::make_pair(height, width);
 
                 // TODO: add a packet for this so you can change the color and/or pen width at any time
                 this->color = cv::Scalar(255, 0, 0);
                 this->dot_width = 5;
-                this->canvas = cv::Mat::zeros(size.first, size.second, CV_8UC1);
+                this->canvas = cv::Mat::zeros(size.first, size.second, CV_8U);
 
+                LOG(INFO) << "returning from canvas.Open";
                 return absl::OkStatus();
             }
 
             // ! expects the substrate mat to be in RGB format
             absl::Status Process(CalculatorContext* cc) {
                 // throw an error if any inputs not present
-                RET_CHECK(!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty());
-                RET_CHECK(!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty());
+
+                //RET_CHECK(!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty());
+                //RET_CHECK(!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty());
                 RET_CHECK(!cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty());
 
                 auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
 
-                // only update the canvas if gesture is detected
-                if (!cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>()) {
+                // if no coords packet or gesture packet, just forward the substrate
+                if (cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty() || cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty()) {
+                    LOG(INFO) << "either draw coords or gesture packet is empty. Simply forwarding substrate";
+                } else if (!cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>()) {
+                    // only update the canvas if gesture is detected
                     std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
                     std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.second),
                         (int)(coords.second * (float)this->size.first));
-                    this->update_canvas(coords_int);
-                    return absl::OkStatus();
+                    this->update_canvas(coords);
                 }
 
-                // apply substrate to the image and send
+                // apply canvas to the image and send
                 auto output_frame = absl::make_unique<cv::Mat>(formats::MatView(&substrate_packet));
                 output_frame.get()->setTo(this->color, this->canvas);
 

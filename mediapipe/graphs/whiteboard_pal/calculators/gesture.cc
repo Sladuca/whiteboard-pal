@@ -14,12 +14,8 @@ namespace mediapipe {
     constexpr char LANDMARKS_TAG[] = "LANDMARKS";
     // don't care about handedness for now
     // constexpr char HANDEDNESS_TAG[] = "HANDEDNESS";
-    constexpr char COORDS_TAG[] = "COORDS";
+    constexpr char COORDS_TAG[] = "DRAW_COORDS";
     constexpr char HAS_GESTURE_TAG[] = "HAS_GESTURE";
-
-    // for stub usage
-    std::pair<float, float> stub_coords = std::make_pair(1.f, 1.f);
-    bool stub_has_gesture = true;
 
     class WhiteboardPalGestureDetectionCalculator: public CalculatorBase {
         public:
@@ -66,11 +62,16 @@ namespace mediapipe {
                 float key_x = std::min(knuckle_x, middle_x);
 
                 bool clenched = (pinky_y > knuckle_y) && (middle_y > knuckle_y) && (pinky_y > knuckle_y);
-                stub_has_gesture = (std::abs(key_x - thumb_x) > std::abs(index_y - knuckle_y)/1.7f) && \
+                bool is_gesture = (std::abs(key_x - thumb_x) > std::abs(index_y - knuckle_y)/1.7f) && \
                   clenched && (index_dip > index_y);
 
-                stub_coords.first = index_x;
-                stub_coords.second = index_y;
+
+                auto stub_coords = absl::make_unique<std::pair<float, float>>();
+                stub_coords->first = index_x;
+                stub_coords->second = index_y;
+
+                auto stub_has_gesture = absl::make_unique<bool>();
+                *(stub_has_gesture.get()) = is_gesture;
 
                 cc->Outputs().Tag(COORDS_TAG).Add(&stub_coords, cc->InputTimestamp()); //need to potentially turn into floats
                 cc->Outputs().Tag(HAS_GESTURE_TAG).Add(&stub_has_gesture, cc->InputTimestamp());
