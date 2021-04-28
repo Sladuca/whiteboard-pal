@@ -23,4 +23,5 @@ mediapipe/provisioning_profile.mobileprovision
 .configure.bazelrc
 .user.bazelrc
 env
-
+/mp_env
+/source
