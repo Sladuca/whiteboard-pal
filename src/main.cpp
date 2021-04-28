@@ -72,7 +72,7 @@ int configure_loopback(loopback_info_t *lb, size_t width, size_t height) {
     return 0;
 }
 
-int output_inner(frame_chan_t &frame_chan, loopback_info_t &lb) {
+int output_inner(frame_chan_t &frame_chan, loopback_info_t lb) {
     while (true) {
         Mat frame;
         if (boost::fibers::channel_op_status::success != frame_chan.pop(frame)) {
@@ -82,12 +82,20 @@ int output_inner(frame_chan_t &frame_chan, loopback_info_t &lb) {
             return -1;
         }
 
+        // LOG(INFO) << "frame height: " << frame.rows;
+        // LOG(INFO) << "frame width: " << frame.cols;
+        // LOG(INFO) << "frame elem size: " << frame.elemSize();
+
         // convert back to yuv420
-        cvtColor(frame, frame, COLOR_BGR2YUV_I420);
-        size_t bytes_written = write(lb.fd, frame.data, lb.framesize);
+        cvtColor(frame, frame, COLOR_RGB2YUV_I420);
+        long bytes_written = write(lb.fd, frame.data, lb.framesize);
+
+
+        LOG(INFO) << "wrote " << bytes_written << " bytes";
+        // LOG(INFO) << "errno: " << strerror(errno);
 
         if (bytes_written < 0) {
-            LOG(ERROR) << "ERROR: failed to write frame to loopback device!";
+            LOG(ERROR) << "ERROR: failed to write frame to loopback device!" << strerror(errno);
             close(lb.fd);
             frame_chan.close();
             return -2;
@@ -98,7 +106,7 @@ int output_inner(frame_chan_t &frame_chan, loopback_info_t &lb) {
 }
 
 int output_inner_fiber(frame_chan_t &frame_chan, loopback_info_t lb) {
-    boost::fibers::fiber f(bind(output_inner, ref(frame_chan), ref(lb)));
+    boost::fibers::fiber f(bind(output_inner, ref(frame_chan), move(lb)));
     f.join();
     return 0;
 }
@@ -110,7 +118,7 @@ optional<thread> output(frame_chan_t &frame_chan, int width, int height) {
         return {};
     }
 
-    thread t(output_inner_fiber, ref(frame_chan), ref(lb));
+    thread t(output_inner_fiber, ref(frame_chan), move(lb));
     return t;
 }
 
@@ -154,6 +162,8 @@ int input_inner(frame_chan_t &frame_chan, VideoCapture &cap, int width, int heig
         }
 
         resize(frame, frame, Size(width, height), 0, 0, CV_INTER_LINEAR);
+        
+        flip(frame, frame, 1);
 
         frame_chan.push(frame);
     }
@@ -191,7 +201,7 @@ pair<pair<int, int>, thread> input(frame_chan_t &camera_chan) {
 
     thread t(input_inner_fiber, ref(camera_chan), move(cap), width, height);
 
-    pair<int, int> size = make_pair(height, width);
+    pair<int, int> size = make_pair(width, height);
     return make_pair(move(size), move(t));
 }
 
@@ -231,8 +241,8 @@ absl::Status main_inner() {
     frame_chan_t camera_chan { 2 };
     auto input_size_and_thread = input(camera_chan);
 
-    int height = input_size_and_thread.first.first;
-    int width = input_size_and_thread.first.second;
+    int width = input_size_and_thread.first.first;
+    int height = input_size_and_thread.first.second;
     thread input_thread = move(input_size_and_thread.second);
 
 
@@ -254,6 +264,7 @@ absl::Status main_inner() {
             LOG(ERROR) << "ERROR: failed to recv frame from camera input thread!\n";
             break;
         }
+
 
         size_t frame_in_timestamp_us =
             (double)getTickCount() / (double)getTickFrequency() * 1e6;
@@ -278,7 +289,7 @@ absl::Status main_inner() {
         mediapipe::Packet packet;
         if (!poller.Next(&packet)) break;
 
-        LOG(INFO) << "Got frame from mediapipe";
+        //LOG(INFO) << "Got frame from mediapipe";
 
         auto& output_frame = packet.Get<Mat>();
 

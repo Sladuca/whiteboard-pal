@@ -23,7 +23,7 @@ namespace mediapipe {
                 // set types for landmark inputs
                 cc->Inputs().Tag(LANDMARKS_TAG).Set<std::vector<NormalizedLandmarkList, std::allocator<NormalizedLandmarkList>>>();
                 // set types for output streams
-                cc->Outputs().Tag(COORDS_TAG).Set<std::pair<int, int>>();
+                cc->Outputs().Tag(COORDS_TAG).Set<std::pair<float, float>>();
                 cc->Outputs().Tag(HAS_GESTURE_TAG).Set<bool>();
 
                 return absl::OkStatus();
@@ -40,7 +40,7 @@ namespace mediapipe {
                 const auto &landmark_vec = cc->Inputs().Tag(LANDMARKS_TAG).Get<std::vector<NormalizedLandmarkList,
                                                                         std::allocator<NormalizedLandmarkList>>>();
                 const auto landmark_list = landmark_vec[0];
-                std::cout << "got landmark list" << "\n";
+                LOG(INFO) << "got landmark list" << "\n";
 
                 //get finger coordinates
                 //index finger
@@ -59,20 +59,24 @@ namespace mediapipe {
                 float ring_y = landmark_list.landmark(16).y();
                 float pinky_y = landmark_list.landmark(20).y();
 
+                // LOG(INFO) << "a";
+
                 float key_x = std::min(knuckle_x, middle_x);
 
                 bool clenched = (pinky_y > knuckle_y) && (middle_y > knuckle_y) && (pinky_y > knuckle_y);
                 bool is_gesture = (std::abs(key_x - thumb_x) > std::abs(index_y - knuckle_y)/1.7f) && \
                   clenched && (index_dip > index_y);
 
-
+                // LOG(INFO) << "b";
                 
                 auto coords = absl::make_unique<std::pair<float, float>>();
                 auto has_gesture = absl::make_unique<bool>();
 
-                coords.get()->first = index_x;
-                coords.get()->second = index_y;
-                *(has_gesture.get()) = is_gesture;
+                coords->first = index_y;
+                coords->second = index_x;
+                *has_gesture = is_gesture;
+                
+                // LOG(INFO) << "c";
 
                 cc->Outputs().Tag(COORDS_TAG).Add(coords.release(), cc->InputTimestamp()); //need to potentially turn into floats
                 cc->Outputs().Tag(HAS_GESTURE_TAG).Add(has_gesture.release(), cc->InputTimestamp());

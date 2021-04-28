@@ -8,6 +8,29 @@
 #include "mediapipe/framework/formats/image_frame.h"
 #include "mediapipe/framework/formats/image_frame_opencv.h"
 
+void printt_mat_type(int type) {
+  std::string r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  LOG(INFO) << "CAP_PROP_FORMAT: " << r << "\n";
+}
+
 namespace mediapipe {
 
     constexpr char DRAW_COORDS_TAG[] = "DRAW_COORDS";
@@ -26,7 +49,7 @@ namespace mediapipe {
         public:
             static absl::Status GetContract(CalculatorContract* cc) {
                 LOG(INFO) << "canvas calculator get contract\n";
-                cc->Inputs().Tag(DRAW_COORDS_TAG).Set<std::pair<int, int>>();
+                cc->Inputs().Tag(DRAW_COORDS_TAG).Set<std::pair<float, float>>();
                 cc->Inputs().Tag(HAS_GESTURE_TAG).Set<bool>();
                 cc->Inputs().Tag(SUBSTRATE_TAG).Set<ImageFrame>();
                 cc->InputSidePackets().Tag(FRAME_WIDTH_TAG).Set<int>();
@@ -58,28 +81,37 @@ namespace mediapipe {
             // ! expects the substrate mat to be in RGB format
             absl::Status Process(CalculatorContext* cc) {
                 // throw an error if any inputs not present
+                // LOG(INFO) << "1";
 
                 //RET_CHECK(!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty());
                 //RET_CHECK(!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty());
                 RET_CHECK(!cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty());
+                
+                // LOG(INFO) << "2";
 
                 auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
 
                 // if no coords packet or gesture packet, just forward the substrate
                 if (cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty() || cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty()) {
-                    LOG(INFO) << "either draw coords or gesture packet is empty. Simply forwarding substrate";
-                } else if (!cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>()) {
+                    // LOG(INFO) << "either draw coords or gesture packet is empty. Simply forwarding substrate";
+                } else if (cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>()) {
+                    // LOG(INFO) << "3";
                     // only update the canvas if gesture is detected
                     std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
                     std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.second),
                         (int)(coords.second * (float)this->size.first));
+                    // LOG(INFO) << "pair int: " << coords_int.first << coords_int.second;
                     this->update_canvas(coords_int);
                 }
 
+                // LOG(INFO) << "4";
+
                 // apply canvas to the image and send
                 auto output_frame = absl::make_unique<cv::Mat>(formats::MatView(&substrate_packet));
-                output_frame.get()->setTo(this->color, this->canvas);
-
+                output_frame->setTo(this->color, this->canvas);
+                
+                // LOG(INFO) << "5";
+                
                 cc->Outputs().Tag(DRAWN_FRAME_TAG).Add(output_frame.release(), cc->InputTimestamp());
                 return absl::OkStatus();
             }
