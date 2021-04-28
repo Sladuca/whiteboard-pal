@@ -44,7 +44,9 @@ namespace mediapipe {
         cv::Mat canvas;
         cv::Scalar color;
         std::pair<int, int> size;
+        std::optional<std::pair<int, int>> previous_point;
         int dot_width;
+        bool has_gesture;
 
         public:
             static absl::Status GetContract(CalculatorContract* cc) {
@@ -68,11 +70,13 @@ namespace mediapipe {
                 LOG(INFO) << "frame width: " << width;
 
                 this->size = std::make_pair(width, height);
+                this->previous_point = {};
 
                 // TODO: add a packet for this so you can change the color and/or pen width at any time
                 this->color = cv::Scalar(255, 0, 0);
-                this->dot_width = 5;
+                this->dot_width = 3;
                 this->canvas = cv::Mat::zeros(size.second, size.first, CV_8U);
+                this->has_gesture = false;
 
                 LOG(INFO) << "returning from canvas.Open";
                 return absl::OkStatus();
@@ -87,21 +91,25 @@ namespace mediapipe {
                 //RET_CHECK(!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty());
                 RET_CHECK(!cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty());
                 
-                // LOG(INFO) << "2";
-
                 auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
 
-                // if no coords packet or gesture packet, just forward the substrate
-                if (cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty() || cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty()) {
-                    // LOG(INFO) << "either draw coords or gesture packet is empty. Simply forwarding substrate";
-                } else if (cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>()) {
-                    // LOG(INFO) << "3";
-                    // only update the canvas if gesture is detected
-                    std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
-                    std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.first),
-                        (int)(coords.second * (float)this->size.second));
-                    // LOG(INFO) << "pair int: " << coords_int.first << coords_int.second;
-                    this->update_canvas(coords_int);
+                if (!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty()) {
+                    bool gesture = cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>();
+                    this->has_gesture = gesture;
+                }
+
+                // only update the canvas if gesture is detected
+                if (!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty()) {
+                    if (this->has_gesture) {
+                        std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
+                        std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.first),
+                            (int)(coords.second * (float)this->size.second));
+                        // LOG(INFO) << "pair int: " << coords_int.first << coords_int.second;
+                        this->update_canvas(coords_int);
+                        this->previous_point = coords_int;
+                    } else {
+                        this->previous_point = {};
+                    }
                 }
 
                 // LOG(INFO) << "4";
@@ -118,6 +126,12 @@ namespace mediapipe {
 
         private:
             void update_canvas(std::pair<int, int> coords) {
+
+                if (!this->previous_point.has_value()) {
+                    this->previous_point = coords;
+                    return;
+                }
+
                 LOG(INFO) << "canvas calculator update\n";
 
                 if (coords.first < this->dot_width / 2) {
@@ -135,17 +149,9 @@ namespace mediapipe {
 
                 // cout << "x: " << coords.first << " y: " << coords.second << "\n";
 
-                // get a reference to the part of the canvas matrix where dot is to be drawn
-                cv::Mat roi = this->canvas(
-                    cv::Rect(
-                        coords.first-(this->dot_width / 2),
-                        coords.second-(this->dot_width / 2),
-                        this->dot_width,
-                        this->dot_width
-                    )
-                );
+                auto previous_point = this->previous_point.value();
 
-                roi.setTo(1);
+                cv::line(this->canvas, cv::Point(previous_point.first, previous_point.second), cv::Point(coords.first, coords.second), cv::Scalar(1), this->dot_width);
             }
     };
     REGISTER_CALCULATOR(WhiteboardPalCanvasCalculator);
