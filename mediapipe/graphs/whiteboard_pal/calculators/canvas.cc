@@ -55,6 +55,7 @@ namespace mediapipe {
         std::optional<std::pair<int, int>> previous_point;
         int dot_width;
         bool has_gesture;
+        bool line_in_progress;
 
         public:
             static absl::Status GetContract(CalculatorContract* cc) {
@@ -81,6 +82,7 @@ namespace mediapipe {
                 this->size = std::make_pair(width, height);
                 this->previous_point = {};
                 this->mode = DrawMode::DEFAULT;
+                this->line_in_progress = false;
 
                 // TODO: add a packet for this so you can change the color and/or pen width at any time
                 this->color = cv::Scalar(255, 0, 0);
@@ -108,10 +110,22 @@ namespace mediapipe {
                 
                 auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
 
+                bool finish_line = false;
+
+
                 if (!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty()) {
                     bool gesture = cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>();
+                    if (this->mode == DrawMode::LINE && this->has_gesture && !gesture) {
+                       this->line_in_progress = false;
+                       finish_line = true;
+                    } else if (this->mode == DrawMode::LINE && !this->has_gesture && gesture) {
+                        this->line_in_progress = true;
+                    }
                     this->has_gesture = gesture;
                 }
+
+
+                std::optional<std::pair<int, int>> line_preview_endpoint;
 
                 // only update the canvas if gesture is detected
                 if (!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty()) {
@@ -119,9 +133,14 @@ namespace mediapipe {
                         std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
                         std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.first),
                             (int)(coords.second * (float)this->size.second));
-                        // LOG(INFO) << "pair int: " << coords_int.first << coords_int.second;
-                        this->update_canvas(coords_int);
-                        this->previous_point = coords_int;
+
+                        if (this->mode == DrawMode::LINE && !finish_line) {
+                            line_preview_endpoint = coords_int;
+                        } else {
+                            // LOG(INFO) << "pair int: " << coords_int.first << coords_int.second;
+                            this->update_canvas(coords_int);
+                            this->previous_point = coords_int;
+                        }
                     } else {
                         this->previous_point = {};
                     }
@@ -132,6 +151,13 @@ namespace mediapipe {
                 // apply canvas to the image and send
                 auto output_frame = absl::make_unique<cv::Mat>(formats::MatView(&substrate_packet));
                 output_frame->setTo(this->color, this->canvas);
+
+                // show straight-line preview
+                if (this->mode == DrawMode::LINE && !finish_line && line_preview_endpoint.has_value() && previous_point.has_value()) {
+                    cv::Point p1 = cv::Point(this->previous_point.value().first, this->previous_point.value().second);
+                    cv::Point p2 = cv::Point(line_preview_endpoint.value().first, line_preview_endpoint.value().second);
+                    cv::line(*output_frame, p1, p2, this->color, this->dot_width);
+                }
                 
                 // LOG(INFO) << "5";
                 
@@ -140,6 +166,7 @@ namespace mediapipe {
             }
 
         private:
+
             void toggle_mode() {
                 switch (this->mode) {
                     case DrawMode::DEFAULT:
@@ -147,6 +174,7 @@ namespace mediapipe {
                         break;
                     case DrawMode::LINE:
                         this->mode = DrawMode::ERASER;
+                        this->line_in_progress = false;
                         break;
                     case DrawMode::ERASER:
                         this->mode = DrawMode::DEFAULT;
