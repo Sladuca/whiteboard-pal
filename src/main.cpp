@@ -5,6 +5,7 @@
 #include <linux/videodev2.h>
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
+#include "ncurses.h"
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/formats/image_frame.h"
 #include "mediapipe/framework/formats/image_frame_opencv.h"
@@ -22,7 +23,39 @@
 #define VIDEO_OUT "/dev/video6"
 
 constexpr char GRAPH_INPUT_STREAM_NAME[] = "input_video";
+constexpr char GRAPH_KEY_INPUT_STREAM_NAME[] = "input_key";
 constexpr char GRAPH_OUTPUT_STREAM_NAME[] = "output_video";
+
+absl::Status key_input_inner(mediapipe::CalculatorGraph &graph) {
+    // init ncurses
+    initscr();
+    // set ncurses to block
+    timeout(-1);
+
+    while (true) {
+
+        auto c = absl::make_unique<int>();
+        *c = getch();
+
+        size_t timestamp = (double)getTickCount() / (double)getTickFrequency() * 1e6;
+        MP_RETURN_IF_ERROR(graph.AddPacketToInputStream(
+            GRAPH_KEY_INPUT_STREAM_NAME, mediapipe::Adopt(c.release())
+                            .At(mediapipe::Timestamp(timestamp))));
+    }
+    endwin();
+    return absl::OkStatus();
+}
+
+int key_input_inner_fiber(mediapipe::CalculatorGraph &graph) {
+    boost::fibers::fiber f(bind(key_input_inner, ref(graph)));
+    f.join();
+    return 0;
+}
+
+thread key_input(mediapipe::CalculatorGraph &graph) {
+    thread t(key_input_inner_fiber, ref(graph));
+    return t;
+}
 
 int configure_loopback(loopback_info_t *lb, size_t width, size_t height) {
     int fd = open(VIDEO_OUT, O_RDWR);
@@ -247,6 +280,9 @@ absl::Status main_inner() {
     int width = input_size_and_thread.first.first;
     int height = input_size_and_thread.first.second;
     thread input_thread = move(input_size_and_thread.second);
+
+    LOG(INFO) << "Starting keyboard input thread: ";
+    thread keyboard_thread = key_input(graph);
 
 
     LOG(INFO) << "Starting output thread: ";

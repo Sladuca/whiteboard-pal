@@ -31,6 +31,12 @@ void printt_mat_type(int type) {
   LOG(INFO) << "CAP_PROP_FORMAT: " << r << "\n";
 }
 
+typedef enum DrawMode {
+    DEFAULT,
+    LINE,
+    ERASER,
+} DrawMode;
+
 namespace mediapipe {
 
     constexpr char DRAW_COORDS_TAG[] = "DRAW_COORDS";
@@ -39,8 +45,10 @@ namespace mediapipe {
     constexpr char FRAME_WIDTH_TAG[] = "FRAME_WIDTH";
     constexpr char SUBSTRATE_TAG[] = "SUBSTRATE";
     constexpr char DRAWN_FRAME_TAG[] = "DRAWN_FRAME";
+    constexpr char KEY_TAG[] = "KEY";
 
     class WhiteboardPalCanvasCalculator: public CalculatorBase {
+        DrawMode mode;
         cv::Mat canvas;
         cv::Scalar color;
         std::pair<int, int> size;
@@ -54,6 +62,7 @@ namespace mediapipe {
                 cc->Inputs().Tag(DRAW_COORDS_TAG).Set<std::pair<float, float>>();
                 cc->Inputs().Tag(HAS_GESTURE_TAG).Set<bool>();
                 cc->Inputs().Tag(SUBSTRATE_TAG).Set<ImageFrame>();
+                cc->Inputs().Tag(KEY_TAG).Set<int>();
                 cc->InputSidePackets().Tag(FRAME_WIDTH_TAG).Set<int>();
                 cc->InputSidePackets().Tag(FRAME_HEIGHT_TAG).Set<int>();
                 cc->Outputs().Tag(DRAWN_FRAME_TAG).Set<cv::Mat>();
@@ -71,6 +80,7 @@ namespace mediapipe {
 
                 this->size = std::make_pair(width, height);
                 this->previous_point = {};
+                this->mode = DrawMode::DEFAULT;
 
                 // TODO: add a packet for this so you can change the color and/or pen width at any time
                 this->color = cv::Scalar(255, 0, 0);
@@ -84,11 +94,16 @@ namespace mediapipe {
 
             // ! expects the substrate mat to be in RGB format
             absl::Status Process(CalculatorContext* cc) {
-                // throw an error if any inputs not present
-                // LOG(INFO) << "1";
 
-                //RET_CHECK(!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty());
-                //RET_CHECK(!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty());
+                if (!cc->Inputs().Tag(KEY_TAG).IsEmpty()) {
+                    int c = cc->Inputs().Tag(KEY_TAG).Get<int>();
+                    this->handle_key(c);
+
+                    if (cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty()) {
+                        return absl::OkStatus();
+                    }
+                }
+
                 RET_CHECK(!cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty());
                 
                 auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
@@ -125,6 +140,34 @@ namespace mediapipe {
             }
 
         private:
+            void toggle_mode() {
+                switch (this->mode) {
+                    case DrawMode::DEFAULT:
+                        this->mode = DrawMode::LINE;
+                        break;
+                    case DrawMode::LINE:
+                        this->mode = DrawMode::ERASER;
+                        break;
+                    case DrawMode::ERASER:
+                        this->mode = DrawMode::DEFAULT;
+                        break;
+                    default:
+                        LOG(ERROR) << "canvas draw mode in an invalid state!";
+                }
+                LOG(INFO) << "current draw mode: " << this->mode;
+            }
+
+            void handle_key(int c) {
+                switch (c) {
+                    case 'm':
+                        this->toggle_mode();
+                        break;
+                    default:
+                        LOG(INFO) << "ignoring unrecognised key '"  << (char)c << "'";
+                        break;
+                }
+            }
+
             void update_canvas(std::pair<int, int> coords) {
 
                 if (!this->previous_point.has_value()) {

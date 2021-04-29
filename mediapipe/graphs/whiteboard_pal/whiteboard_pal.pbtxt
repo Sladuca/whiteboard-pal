@@ -6,6 +6,7 @@
 
 # CPU image. (ImageFrame)
 input_stream: "input_video"
+input_stream: "input_key"
 
 # CPU image. (ImageFrame)
 output_stream: "output_video"
@@ -74,6 +75,7 @@ node {
     input_stream: "DRAW_COORDS:finger_coords"
     input_stream: "HAS_GESTURE:has_gesture"
     input_stream: "SUBSTRATE:throttled_input_video"
+    input_stream: "KEY:input_key"
     input_side_packet: "FRAME_WIDTH:frame_width"
     input_side_packet: "FRAME_HEIGHT:frame_height"
     output_stream: "DRAWN_FRAME:output_video"

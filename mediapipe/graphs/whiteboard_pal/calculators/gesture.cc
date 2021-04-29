@@ -82,7 +82,6 @@ namespace mediapipe {
                 cc->Outputs().Tag(HAS_GESTURE_TAG).Add(has_gesture.release(), cc->InputTimestamp());
                 return absl::OkStatus();
             }
-
     };
     REGISTER_CALCULATOR(WhiteboardPalGestureDetectionCalculator);
 }

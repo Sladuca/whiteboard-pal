@@ -7,7 +7,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/mat.hpp>
 #include <boost/fiber/all.hpp>
-#include <chrono>;
+#include <chrono>
 #endif
 
 using namespace cv;
@@ -24,12 +24,13 @@ typedef struct loopback_info {
 
 typedef enum substrate_source {
     WEBCAM,
-    SCREEN,
+    SCREEN_CAPTURE,
     WHITEBOARD,
 } substrate_source_t;
 
 
 typedef boost::fibers::buffered_channel<cv::Mat> frame_chan_t;
+typedef boost::fibers::buffered_channel<int> int_char_chan_t;
 
 std::pair<std::pair<int, int>, thread> input(frame_chan_t &camera_chan);
 int output(frame_chan_t &output_frames_chan);

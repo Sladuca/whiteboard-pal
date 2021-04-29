@@ -21,8 +21,15 @@ cc_library(
         "//mediapipe/framework/port:status",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
+        "@ncurses//:main",
     ]
 )
+
+# cc_library(
+#    name = "ncurses",
+#    srcs = ["/usr/lib/x86_64-linux-gnu/libncurses.a"],
+#    visibility = ["//visibility:public"],
+# )
 
 cc_binary(
     name = "whiteboard_pal",
