@@ -72,7 +72,7 @@ namespace mediapipe {
 
             // TODO: get rid of this and actually set the timestamps properly
             absl::Status Open(CalculatorContext* cc) {
-                cc->SetOffset(TimestampDiff(0));
+                // cc->SetOffset(TimestampDiff(0));
                 int width = cc->InputSidePackets().Tag(FRAME_WIDTH_TAG).Get<int>();
                 int height = cc->InputSidePackets().Tag(FRAME_HEIGHT_TAG).Get<int>();
 
@@ -97,6 +97,12 @@ namespace mediapipe {
             // ! expects the substrate mat to be in RGB format
             absl::Status Process(CalculatorContext* cc) {
 
+                // LOG(INFO) << "0";
+
+                RET_CHECK(!cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty() || !cc->Inputs().Tag(KEY_TAG).IsEmpty());
+
+                // LOG(INFO) << "1";
+
                 if (!cc->Inputs().Tag(KEY_TAG).IsEmpty()) {
                     int c = cc->Inputs().Tag(KEY_TAG).Get<int>();
                     this->handle_key(c);
@@ -106,7 +112,8 @@ namespace mediapipe {
                     }
                 }
 
-                RET_CHECK(!cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty());
+
+                // LOG(INFO) << "2";
                 
                 auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
 
@@ -123,6 +130,8 @@ namespace mediapipe {
                     }
                     this->has_gesture = gesture;
                 }
+
+                // LOG(INFO) << "3";
 
 
                 std::optional<std::pair<int, int>> line_preview_endpoint;

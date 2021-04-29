@@ -294,6 +294,7 @@ absl::Status main_inner() {
     thread output_thread = move(output_thread_wrapped.value());
 
 
+    absl::Status status = absl::OkStatus();
     LOG(INFO) << "Starting main loop: ";
     while (true) {
         // read incoming RGB frame from input thread
@@ -317,9 +318,14 @@ absl::Status main_inner() {
 
         // Feed the "ImageFrame" packet into the mediapipe graph
         // blocks until complete
-        MP_RETURN_IF_ERROR(graph.AddPacketToInputStream(
+        status = graph.AddPacketToInputStream(
             GRAPH_INPUT_STREAM_NAME, mediapipe::Adopt(input_frame_packet.release())
-                            .At(mediapipe::Timestamp(frame_in_timestamp_us))));
+                            .At(mediapipe::Timestamp(frame_in_timestamp_us)));
+
+        if (status != absl::OkStatus()) {
+            LOG(INFO) << "failed to send frame to mediapipe: " << status;
+            break;
+        }
 
         // LOG(INFO) << "Sent frame to mediapipe";
 
@@ -328,7 +334,7 @@ absl::Status main_inner() {
         mediapipe::Packet packet;
         if (!poller.Next(&packet)) break;
 
-        //LOG(INFO) << "Got frame from mediapipe";
+        // LOG(INFO) << "Got frame from mediapipe";
 
         auto& output_frame = packet.Get<Mat>();
 
@@ -344,7 +350,7 @@ absl::Status main_inner() {
     output_frame_chan.close();
     output_thread.join();
     input_thread.join();
-    return absl::OkStatus();
+    return status;
 }
 
 int main(int argc, char** argv) {

@@ -79,4 +79,19 @@ node {
     input_side_packet: "FRAME_WIDTH:frame_width"
     input_side_packet: "FRAME_HEIGHT:frame_height"
     output_stream: "DRAWN_FRAME:output_video"
+    input_stream_handler: {
+      input_stream_handler: "SyncSetInputStreamHandler"
+      options: {
+        [mediapipe.SyncSetInputStreamHandlerOptions.ext]: {
+          sync_set: {
+            # TODO Update this to use a mix of indexes
+            # and tags once the framework supports it.
+            tag_index: "DRAW_COORDS"
+            tag_index: "HAS_GESTURE"
+            tag_index: "SUBSTRATE"
+          }
+          sync_set: { tag_index: "KEY" }
+        }
+      }
+    }
 }
