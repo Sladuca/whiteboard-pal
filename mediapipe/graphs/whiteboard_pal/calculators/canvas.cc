@@ -53,6 +53,7 @@ namespace mediapipe {
         cv::Scalar color;
         std::pair<int, int> size;
         std::optional<std::pair<int, int>> previous_point;
+        std::optional<std::pair<int, int>> line_preview_endpoint;
         int dot_width;
         bool has_gesture;
         bool line_in_progress;
@@ -118,23 +119,27 @@ namespace mediapipe {
                 auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
 
                 bool finish_line = false;
+                bool start_line = false;
 
 
                 if (!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty()) {
                     bool gesture = cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>();
                     if (this->mode == DrawMode::LINE && this->has_gesture && !gesture) {
-                       this->line_in_progress = false;
-                       finish_line = true;
+                        this->line_in_progress = false;
+                        finish_line = true;
                     } else if (this->mode == DrawMode::LINE && !this->has_gesture && gesture) {
                         this->line_in_progress = true;
+                        start_line = true;
                     }
                     this->has_gesture = gesture;
                 }
 
+
+                std::cout << finish_line;
+
                 // LOG(INFO) << "3";
 
 
-                std::optional<std::pair<int, int>> line_preview_endpoint;
 
                 // only update the canvas if gesture is detected
                 if (!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty()) {
@@ -144,12 +149,15 @@ namespace mediapipe {
                             (int)(coords.second * (float)this->size.second));
 
                         if (this->mode == DrawMode::LINE && !finish_line) {
-                            line_preview_endpoint = coords_int;
+                            this->line_preview_endpoint = coords_int;
                         } else {
                             // LOG(INFO) << "pair int: " << coords_int.first << coords_int.second;
                             this->update_canvas(coords_int);
                             this->previous_point = coords_int;
                         }
+                    } else if (this->mode == DrawMode::LINE && finish_line && this->line_preview_endpoint.has_value()) {
+                        this->update_canvas(this->line_preview_endpoint.value());
+                        this->line_preview_endpoint = {};
                     } else {
                         this->previous_point = {};
                     }
