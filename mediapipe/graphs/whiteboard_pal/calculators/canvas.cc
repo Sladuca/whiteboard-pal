@@ -41,7 +41,7 @@ enum Color{
     RED,
     GREEN,
     BLUE,
-    BLACK
+    WHITE
 };
 
 namespace mediapipe {
@@ -148,10 +148,7 @@ namespace mediapipe {
 
                 // LOG(INFO) << "3";
 
-
-
-                // only update the canvas if gesture is detected
-                if (!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty()) {
+		if (!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty()) {
                     if (this->has_gesture) {
                         std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
                         std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.first),
@@ -168,10 +165,15 @@ namespace mediapipe {
                         this->update_canvas(this->line_preview_endpoint.value());
                         this->line_preview_endpoint = {};
                     } else {
-			this->update_canvas(this->line_preview_endpoint.value());
                         this->previous_point = {};
                     }
                 }
+
+                
+
+		if(this->mode == DrawMode::ERASER) this->canvas = cv::Mat::zeros(size.second, size.first, CV_8U);
+
+
 
                 // LOG(INFO) << "4";
 
@@ -216,18 +218,22 @@ namespace mediapipe {
 			case RED:
 				this->color = cv::Scalar(0,255,0);
 				this->color_name = GREEN;
+                		LOG(INFO) << "New color is GREEN";
 				break;
 			case GREEN:
 				this->color = cv::Scalar(0,0,255);
 				this->color_name = BLUE;
+                		LOG(INFO) << "New color is BLUE";
 				break;
 			case BLUE:
 				this->color = cv::Scalar(255,255,255);
-				this->color_name = BLACK;
+				this->color_name = WHITE;
+                		LOG(INFO) << "New color is WHITE";
 				break;
-			case BLACK:
+			case WHITE:
 				this->color = cv::Scalar(255,0,0);
 				this->color_name = RED;
+                		LOG(INFO) << "New color is RED";
 				break; 
 		}
 	    }
@@ -236,18 +242,23 @@ namespace mediapipe {
                 switch (c) {
                     case 'm':
                         this->toggle_mode();
+                	LOG(INFO) << "current draw mode: " << this->mode;
                         break;
 		    case 'z':
 			this->mode = DrawMode::LINE;
+                	LOG(INFO) << "current draw mode: " << this->mode;
 			break;
 		    case 'x':
 			this->mode = DrawMode::ERASER;
+                        LOG(INFO) << "current draw mode: " << this->mode;
 			break;
 		    case 'c':
 			this->mode = DrawMode::DEFAULT;
+                        LOG(INFO) << "current draw mode: " << this->mode;
 			break;
 		    case 'v':
 			this->toggle_color();
+			break;
                     default:
                         LOG(INFO) << "ignoring unrecognised key '"  << (char)c << "'";
                         break;
@@ -255,38 +266,30 @@ namespace mediapipe {
             }
 
             void update_canvas(std::pair<int, int> coords) {
-		switch(this->mode){
-		    case DrawMode::ERASER:
-		        this->canvas = cv::Mat::zeros(size.second, size.first, CV_8U);
-		        break;
-		    case DrawMode::LINE:
-			break;
-		    case DrawMode::DEFAULT:
-			if (!this->previous_point.has_value()) {
-                    	    this->previous_point = coords;
-                            return;
-                        }
+		if (!this->previous_point.has_value()) {
+                    this->previous_point = coords;
+                    return;
+                }
 
-                	LOG(INFO) << "canvas calculator update\n";
+                LOG(INFO) << "canvas calculator update\n";
 
-                	if (coords.first < this->dot_width / 2) {
-               		     coords.first = this->dot_width / 2;
-                	}
-                	if (coords.second < this->dot_width / 2) {
-               		     coords.second = this->dot_width / 2;
-                	}
-                	if (this->size.first - coords.first < this->dot_width / 2) {
-                	    coords.first = this->size.first - this->dot_width / 2;
-                	}
-                	if (this->size.second - coords.second < this->dot_width / 2) {
-                	    coords.second = this->size.second - this->dot_width / 2;
-                	}
-                	// cout << "x: " << coords.first << " y: " << coords.second << "\n";
+                if (coords.first < this->dot_width / 2) {
+               	     coords.first = this->dot_width / 2;
+                }
+                if (coords.second < this->dot_width / 2) {
+               	     coords.second = this->dot_width / 2;
+                }
+                if (this->size.first - coords.first < this->dot_width / 2) {
+                    coords.first = this->size.first - this->dot_width / 2;
+                }
+                if (this->size.second - coords.second < this->dot_width / 2) {
+                    coords.second = this->size.second - this->dot_width / 2;
+                }
+                // cout << "x: " << coords.first << " y: " << coords.second << "\n";
 
-                	auto previous_point = this->previous_point.value();
-                	cv::line(this->canvas, cv::Point(previous_point.first, previous_point.second), cv::Point(coords.first, coords.second), cv::Scalar(1), this->dot_width);
-			break;
-		}
+                auto previous_point = this->previous_point.value();
+                cv::line(this->canvas, cv::Point(previous_point.first, previous_point.second), cv::Point(coords.first, coords.second), cv::Scalar(1), this->dot_width);
+
             }
     };
     REGISTER_CALCULATOR(WhiteboardPalCanvasCalculator);
