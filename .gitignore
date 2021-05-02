@@ -25,3 +25,7 @@ mediapipe/provisioning_profile.mobileprovision
 env
 /mp_env
 /source
+<<<<<<< HEAD
+=======
+logs/**/*
+>>>>>>> 7681c5d4f33191ba55975c59b4b4581cedbfdd04

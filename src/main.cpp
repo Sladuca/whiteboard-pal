@@ -5,6 +5,7 @@
 #include <linux/videodev2.h>
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
+#include "ncurses.h"
 #include "mediapipe/framework/calculator_framework.h"
 #include "mediapipe/framework/formats/image_frame.h"
 #include "mediapipe/framework/formats/image_frame_opencv.h"
@@ -22,7 +23,39 @@
 #define VIDEO_OUT "/dev/video6"
 
 constexpr char GRAPH_INPUT_STREAM_NAME[] = "input_video";
+constexpr char GRAPH_KEY_INPUT_STREAM_NAME[] = "input_key";
 constexpr char GRAPH_OUTPUT_STREAM_NAME[] = "output_video";
+
+absl::Status key_input_inner(mediapipe::CalculatorGraph &graph) {
+    // init ncurses
+    initscr();
+    // set ncurses to block
+    timeout(-1);
+
+    while (true) {
+
+        auto c = absl::make_unique<int>();
+        *c = getch();
+
+        size_t timestamp = (double)getTickCount() / (double)getTickFrequency() * 1e6;
+        MP_RETURN_IF_ERROR(graph.AddPacketToInputStream(
+            GRAPH_KEY_INPUT_STREAM_NAME, mediapipe::Adopt(c.release())
+                            .At(mediapipe::Timestamp(timestamp))));
+    }
+    endwin();
+    return absl::OkStatus();
+}
+
+int key_input_inner_fiber(mediapipe::CalculatorGraph &graph) {
+    boost::fibers::fiber f(bind(key_input_inner, ref(graph)));
+    f.join();
+    return 0;
+}
+
+thread key_input(mediapipe::CalculatorGraph &graph) {
+    thread t(key_input_inner_fiber, ref(graph));
+    return t;
+}
 
 int configure_loopback(loopback_info_t *lb, size_t width, size_t height) {
     int fd = open(VIDEO_OUT, O_RDWR);
@@ -72,22 +105,31 @@ int configure_loopback(loopback_info_t *lb, size_t width, size_t height) {
     return 0;
 }
 
-int output_inner(frame_chan_t &frame_chan, loopback_info_t &lb) {
+int output_inner(frame_chan_t &frame_chan, loopback_info_t lb) {
     while (true) {
         Mat frame;
         if (boost::fibers::channel_op_status::success != frame_chan.pop(frame)) {
-            cerr << "ERROR: failed to recv frame from main loop!";
+            LOG(ERROR) << "ERROR: failed to recv frame from main loop: ";
             close(lb.fd);
             frame_chan.close();
             return -1;
         }
 
+        // LOG(INFO) << "frame height: " << frame.rows;
+        // LOG(INFO) << "frame width: " << frame.cols;
+        // LOG(INFO) << "frame elem size: " << frame.elemSize();
+
         // convert back to yuv420
-        cvtColor(frame, frame, COLOR_BGR2YUV_I420);
-        size_t bytes_written = write(lb.fd, frame.data, lb.framesize);
+        cvtColor(frame, frame, COLOR_RGB2YUV_I420);
+        flip(frame, frame, 1);
+        long bytes_written = write(lb.fd, frame.data, lb.framesize);
+
+
+        // LOG(INFO) << "wrote " << bytes_written << " bytes";
+        // LOG(INFO) << "errno: " << strerror(errno);
 
         if (bytes_written < 0) {
-            cerr << "ERROR: failed to write frame to loopback device!";
+            LOG(ERROR) << "ERROR: failed to write frame to loopback device!" << strerror(errno);
             close(lb.fd);
             frame_chan.close();
             return -2;
@@ -98,7 +140,7 @@ int output_inner(frame_chan_t &frame_chan, loopback_info_t &lb) {
 }
 
 int output_inner_fiber(frame_chan_t &frame_chan, loopback_info_t lb) {
-    boost::fibers::fiber f(bind(output_inner, ref(frame_chan), ref(lb)));
+    boost::fibers::fiber f(bind(output_inner, ref(frame_chan), move(lb)));
     f.join();
     return 0;
 }
@@ -110,13 +152,13 @@ optional<thread> output(frame_chan_t &frame_chan, int width, int height) {
         return {};
     }
 
-    thread t(output_inner_fiber, ref(frame_chan), ref(lb));
+    thread t(output_inner_fiber, ref(frame_chan), move(lb));
     return t;
 }
 
 void print_fourcc(int fourcc) {
     string fourcc_str = format("%c%c%c%c", fourcc & 255, (fourcc >> 8) & 255, (fourcc >> 16) & 255, (fourcc >> 24) & 255);
-    cout << "CAP_PROP_FOURCC: " << fourcc_str << endl;
+    LOG(INFO) << "CAP_PROP_FOURCC: " << fourcc_str << endl;
 }
 
 void print_mat_type(int type) {
@@ -139,7 +181,7 @@ void print_mat_type(int type) {
   r += "C";
   r += (chans+'0');
 
-  cout << "CAP_PROP_FORMAT: " << r << "\n";
+  LOG(INFO) << "CAP_PROP_FORMAT: " << r << "\n";
 }
 
 int input_inner(frame_chan_t &frame_chan, VideoCapture &cap, int width, int height) {
@@ -148,12 +190,16 @@ int input_inner(frame_chan_t &frame_chan, VideoCapture &cap, int width, int heig
         cap.read(frame);
 
         if (frame.empty()) {
-            cerr << "ERROR: failed to read frame!";
+            LOG(ERROR) << "ERROR: failed to read frame!";
             frame_chan.close();
             return -1;
         }
 
         resize(frame, frame, Size(width, height), 0, 0, CV_INTER_LINEAR);
+        cvtColor(frame, frame, COLOR_BGR2RGB);
+        
+        flip(frame, frame, 1);
+
 
         frame_chan.push(frame);
     }
@@ -170,10 +216,10 @@ int input_inner_fiber(frame_chan_t &frame_chan, VideoCapture cap, int width, int
 pair<pair<int, int>, thread> input(frame_chan_t &camera_chan) {
     VideoCapture cap(0, CAP_V4L);
 
-    cap.set(CAP_PROP_CONVERT_RGB, 1);
+    // cap.set(CAP_PROP_CONVERT_RGB, 1);
     
     if (not cap.isOpened()) {
-        cerr << "ERROR: failed to open camera!\n";
+        LOG(ERROR) << "ERROR: failed to open camera!\n";
         camera_chan.close();
         exit(-2);
     }
@@ -191,7 +237,7 @@ pair<pair<int, int>, thread> input(frame_chan_t &camera_chan) {
 
     thread t(input_inner_fiber, ref(camera_chan), move(cap), width, height);
 
-    pair<int, int> size = make_pair(height, width);
+    pair<int, int> size = make_pair(width, height);
     return make_pair(move(size), move(t));
 }
 
@@ -231,20 +277,24 @@ absl::Status main_inner() {
     frame_chan_t camera_chan { 2 };
     auto input_size_and_thread = input(camera_chan);
 
-    int height = input_size_and_thread.first.first;
-    int width = input_size_and_thread.first.second;
+    int width = input_size_and_thread.first.first;
+    int height = input_size_and_thread.first.second;
     thread input_thread = move(input_size_and_thread.second);
+
+    LOG(INFO) << "Starting keyboard input thread: ";
+    thread keyboard_thread = key_input(graph);
 
 
     LOG(INFO) << "Starting output thread: ";
     frame_chan_t output_frame_chan { 2 };
-    optional<thread> output_thread_wrapped = output(output_frame_chan, width, height);
+    optional<thread> output_thread_wrapped = output(ref(output_frame_chan), width, height);
 
     LOG(INFO) << "Check to see if output initialization succeded";
     RET_CHECK(output_thread_wrapped.has_value());
     thread output_thread = move(output_thread_wrapped.value());
 
 
+    absl::Status status = absl::OkStatus();
     LOG(INFO) << "Starting main loop: ";
     while (true) {
         // read incoming RGB frame from input thread
@@ -254,6 +304,7 @@ absl::Status main_inner() {
             LOG(ERROR) << "ERROR: failed to recv frame from camera input thread!\n";
             break;
         }
+
 
         size_t frame_in_timestamp_us =
             (double)getTickCount() / (double)getTickFrequency() * 1e6;
@@ -267,30 +318,39 @@ absl::Status main_inner() {
 
         // Feed the "ImageFrame" packet into the mediapipe graph
         // blocks until complete
-        MP_RETURN_IF_ERROR(graph.AddPacketToInputStream(
+        status = graph.AddPacketToInputStream(
             GRAPH_INPUT_STREAM_NAME, mediapipe::Adopt(input_frame_packet.release())
-                            .At(mediapipe::Timestamp(frame_in_timestamp_us))));
+                            .At(mediapipe::Timestamp(frame_in_timestamp_us)));
+
+        if (status != absl::OkStatus()) {
+            LOG(INFO) << "failed to send frame to mediapipe: " << status;
+            break;
+        }
+
+        // LOG(INFO) << "Sent frame to mediapipe";
 
         // Get next output packet from the mediapipe graph and immediately return if it fails
         // blocks until complete
         mediapipe::Packet packet;
         if (!poller.Next(&packet)) break;
-        auto& output_frame_packet = packet.Get<mediapipe::ImageFrame>();
 
-        // unwrap "ImageFrame" packet back into a cv::Mat and send it to the output thread]
-        // blocks if output_frame_chan's internal buffer is full
-        Mat output_frame = mediapipe::formats::MatView(&output_frame_packet);
+        // LOG(INFO) << "Got frame from mediapipe";
+
+        auto& output_frame = packet.Get<Mat>();
+
         if (boost::fibers::channel_op_status::success != output_frame_chan.push(output_frame)) {
             LOG(ERROR) << "ERROR: failed to send mediapipe output frame to output thread!\n";
             break;
         }
     }
 
+    LOG(INFO) << "Exited main loop";
+
     camera_chan.close();
     output_frame_chan.close();
-    input_thread.join();
     output_thread.join();
-    return absl::OkStatus();
+    input_thread.join();
+    return status;
 }
 
 int main(int argc, char** argv) {

@@ -1,6 +1,7 @@
 load(
     "//mediapipe/framework/tool:mediapipe_graph.bzl",
     "mediapipe_binary_graph",
+    "mediapipe_simple_subgraph",
 )
 
 licenses(["notice"])
@@ -40,6 +41,7 @@ cc_library(
         ":desktop_tflite_calculators",
         "//mediapipe/calculators/core:constant_side_packet_calculator",
         "//mediapipe/calculators/core:merge_calculator",
+        "//mediapipe/framework/stream_handler:sync_set_input_stream_handler",
         "//mediapipe/modules/hand_landmark:hand_landmark_tracking_cpu",
         "//mediapipe/graphs/whiteboard_pal/calculators:whiteboard_pal_gesture_calculator",
         "//mediapipe/graphs/whiteboard_pal/calculators:whiteboard_pal_canvas_calculator",

@@ -4,6 +4,38 @@
 #include "mediapipe/framework/port/opencv_imgproc_inc.h"
 #include "mediapipe/framework/port/ret_check.h"
 #include "mediapipe/framework/port/status.h"
+#include "mediapipe/framework/formats/image.h"
+#include "mediapipe/framework/formats/image_frame.h"
+#include "mediapipe/framework/formats/image_frame_opencv.h"
+
+void printt_mat_type(int type) {
+  std::string r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  LOG(INFO) << "CAP_PROP_FORMAT: " << r << "\n";
+}
+
+typedef enum DrawMode {
+    DEFAULT,
+    LINE,
+    ERASER,
+} DrawMode;
 
 namespace mediapipe {
 
@@ -13,18 +45,25 @@ namespace mediapipe {
     constexpr char FRAME_WIDTH_TAG[] = "FRAME_WIDTH";
     constexpr char SUBSTRATE_TAG[] = "SUBSTRATE";
     constexpr char DRAWN_FRAME_TAG[] = "DRAWN_FRAME";
+    constexpr char KEY_TAG[] = "KEY";
 
     class WhiteboardPalCanvasCalculator: public CalculatorBase {
+        DrawMode mode;
         cv::Mat canvas;
         cv::Scalar color;
         std::pair<int, int> size;
+        std::optional<std::pair<int, int>> previous_point;
+        std::optional<std::pair<int, int>> line_preview_endpoint;
         int dot_width;
+        bool has_gesture;
+        bool line_in_progress;
 
-        public: 
+        public:
             static absl::Status GetContract(CalculatorContract* cc) {
-                cc->Inputs().Tag(DRAW_COORDS_TAG).Set<std::pair<int, int>>();
+                cc->Inputs().Tag(DRAW_COORDS_TAG).Set<std::pair<float, float>>();
                 cc->Inputs().Tag(HAS_GESTURE_TAG).Set<bool>();
-                cc->Inputs().Tag(SUBSTRATE_TAG).Set<cv::Mat>();
+                cc->Inputs().Tag(SUBSTRATE_TAG).Set<ImageFrame>();
+                cc->Inputs().Tag(KEY_TAG).Set<int>();
                 cc->InputSidePackets().Tag(FRAME_WIDTH_TAG).Set<int>();
                 cc->InputSidePackets().Tag(FRAME_HEIGHT_TAG).Set<int>();
                 cc->Outputs().Tag(DRAWN_FRAME_TAG).Set<cv::Mat>();
@@ -33,56 +72,147 @@ namespace mediapipe {
 
             // TODO: get rid of this and actually set the timestamps properly
             absl::Status Open(CalculatorContext* cc) {
-                cc->SetOffset(TimestampDiff(0));
+                // cc->SetOffset(TimestampDiff(0));
                 int width = cc->InputSidePackets().Tag(FRAME_WIDTH_TAG).Get<int>();
                 int height = cc->InputSidePackets().Tag(FRAME_HEIGHT_TAG).Get<int>();
 
-                this->size = std::make_pair(height, width);
+                LOG(INFO) << "frame height: " << height;
+                LOG(INFO) << "frame width: " << width;
+
+                this->size = std::make_pair(width, height);
+                this->previous_point = {};
+                this->mode = DrawMode::DEFAULT;
+                this->line_in_progress = false;
 
                 // TODO: add a packet for this so you can change the color and/or pen width at any time
                 this->color = cv::Scalar(255, 0, 0);
-                this->dot_width = 5;
-                this->canvas = cv::Mat::zeros(size.first, size.second, CV_8UC1);
+                this->dot_width = 3;
+                this->canvas = cv::Mat::zeros(size.second, size.first, CV_8U);
+                this->has_gesture = false;
+
                 return absl::OkStatus();
             }
 
             // ! expects the substrate mat to be in RGB format
             absl::Status Process(CalculatorContext* cc) {
-                // throw an error if no coords
-                RET_CHECK(cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty());
 
-                auto output_frame = absl::make_unique<cv::Mat>();
+                // LOG(INFO) << "0";
 
-                // if no substrate, substrate is blank white
-                if (cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty()) {
-                    *output_frame.get() = cv::Mat(
-                        this->size.first,
-                        this->size.second,
-                        CV_8UC3, 
-                        cv::Scalar(255, 255, 255)
-                    );
-                } else {
-                    *output_frame.get() = cc->Inputs().Tag(SUBSTRATE_TAG).Get<cv::Mat>();
+                RET_CHECK(!cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty() || !cc->Inputs().Tag(KEY_TAG).IsEmpty());
+
+                // LOG(INFO) << "1";
+
+                if (!cc->Inputs().Tag(KEY_TAG).IsEmpty()) {
+                    int c = cc->Inputs().Tag(KEY_TAG).Get<int>();
+                    this->handle_key(c);
+
+                    if (cc->Inputs().Tag(SUBSTRATE_TAG).IsEmpty()) {
+                        return absl::OkStatus();
+                    }
                 }
 
+
+                // LOG(INFO) << "2";
+
+                auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
+
+                bool finish_line = false;
+                bool start_line = false;
+
+
+                if (!cc->Inputs().Tag(HAS_GESTURE_TAG).IsEmpty()) {
+                    bool gesture = cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>();
+                    if (this->mode == DrawMode::LINE && this->has_gesture && !gesture) {
+                        this->line_in_progress = false;
+                        finish_line = true;
+                    } else if (this->mode == DrawMode::LINE && !this->has_gesture && gesture) {
+                        this->line_in_progress = true;
+                        start_line = true;
+                    }
+                    this->has_gesture = gesture;
+                }
+
+
+                std::cout << finish_line;
 
                 // only update the canvas if gesture is detected
-                if (!cc->Inputs().Tag(HAS_GESTURE_TAG).Get<bool>()) {
-                    std::pair<int, int> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<int, int>>();
-                    this->update_canvas(coords);
-                    return absl::OkStatus();
+                if (!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty()) {
+                    if (this->has_gesture) {
+                        std::pair<float, float> coords = cc->Inputs().Tag(DRAW_COORDS_TAG).Get<std::pair<float, float>>();
+                        std::pair<int, int> coords_int = std::make_pair((int)(coords.first * (float)this->size.first),
+                            (int)(coords.second * (float)this->size.second));
+
+                        if (this->mode == DrawMode::LINE && !finish_line) {
+                            this->line_preview_endpoint = coords_int;
+                        } else {
+                            // LOG(INFO) << "pair int: " << coords_int.first << coords_int.second;
+                            this->update_canvas(coords_int);
+                            this->previous_point = coords_int;
+                        }
+                    } else if (this->mode == DrawMode::LINE && finish_line && this->line_preview_endpoint.has_value()) {
+                        this->update_canvas(this->line_preview_endpoint.value());
+                        this->line_preview_endpoint = {};
+                    } else {
+                        this->previous_point = {};
+                    }
                 }
 
-                // apply substrate to the image and send
-                output_frame.get()->setTo(this->color, this->canvas);
+                // apply canvas to the image and send
+                auto output_frame = absl::make_unique<cv::Mat>(formats::MatView(&substrate_packet));
+                output_frame->setTo(this->color, this->canvas);
+
+                // show straight-line preview
+                if (this->mode == DrawMode::LINE && !finish_line && line_preview_endpoint.has_value() && previous_point.has_value()) {
+                    cv::Point p1 = cv::Point(this->previous_point.value().first, this->previous_point.value().second);
+                    cv::Point p2 = cv::Point(line_preview_endpoint.value().first, line_preview_endpoint.value().second);
+                    cv::line(*output_frame, p1, p2, this->color, this->dot_width);
+                }
+
                 cc->Outputs().Tag(DRAWN_FRAME_TAG).Add(output_frame.release(), cc->InputTimestamp());
+                return absl::OkStatus();
             }
 
         private:
+
+            void toggle_mode() {
+                switch (this->mode) {
+                    case DrawMode::DEFAULT:
+                        this->mode = DrawMode::LINE;
+                        break;
+                    case DrawMode::LINE:
+                        this->mode = DrawMode::ERASER;
+                        this->line_in_progress = false;
+                        break;
+                    case DrawMode::ERASER:
+                        this->mode = DrawMode::DEFAULT;
+                        break;
+                    default:
+                        LOG(ERROR) << "canvas draw mode in an invalid state!";
+                }
+                LOG(INFO) << "current draw mode: " << this->mode;
+            }
+
+            void handle_key(int c) {
+                switch (c) {
+                    case 'm':
+                        this->toggle_mode();
+                        break;
+                    default:
+                        LOG(INFO) << "ignoring unrecognised key '"  << (char)c << "'";
+                        break;
+                }
+            }
+
             void update_canvas(std::pair<int, int> coords) {
-                
+
+                if (!this->previous_point.has_value()) {
+                    this->previous_point = coords;
+                    return;
+                }
+
+
                 if (coords.first < this->dot_width / 2) {
-                coords.first = this->dot_width / 2;
+                    coords.first = this->dot_width / 2;
                 }
                 if (coords.second < this->dot_width / 2) {
                     coords.second = this->dot_width / 2;
@@ -96,19 +226,10 @@ namespace mediapipe {
 
                 // cout << "x: " << coords.first << " y: " << coords.second << "\n";
 
-                // get a reference to the part of the canvas matrix where dot is to be drawn
-                cv::Mat roi = this->canvas(
-                    cv::Rect(
-                        coords.first-(this->dot_width / 2),
-                        coords.second-(this->dot_width / 2),
-                        this->dot_width,
-                        this->dot_width
-                    )
-                );
+                auto previous_point = this->previous_point.value();
 
-                roi.setTo(1);
+                cv::line(this->canvas, cv::Point(previous_point.first, previous_point.second), cv::Point(coords.first, coords.second), cv::Scalar(1), this->dot_width);
             }
     };
     REGISTER_CALCULATOR(WhiteboardPalCanvasCalculator);
 }
-
