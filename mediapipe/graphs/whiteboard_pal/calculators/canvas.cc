@@ -60,7 +60,6 @@ namespace mediapipe {
 
         public:
             static absl::Status GetContract(CalculatorContract* cc) {
-                LOG(INFO) << "canvas calculator get contract\n";
                 cc->Inputs().Tag(DRAW_COORDS_TAG).Set<std::pair<float, float>>();
                 cc->Inputs().Tag(HAS_GESTURE_TAG).Set<bool>();
                 cc->Inputs().Tag(SUBSTRATE_TAG).Set<ImageFrame>();
@@ -91,7 +90,6 @@ namespace mediapipe {
                 this->canvas = cv::Mat::zeros(size.second, size.first, CV_8U);
                 this->has_gesture = false;
 
-                LOG(INFO) << "returning from canvas.Open";
                 return absl::OkStatus();
             }
 
@@ -115,7 +113,7 @@ namespace mediapipe {
 
 
                 // LOG(INFO) << "2";
-                
+
                 auto& substrate_packet = cc->Inputs().Tag(SUBSTRATE_TAG).Get<ImageFrame>();
 
                 bool finish_line = false;
@@ -136,10 +134,6 @@ namespace mediapipe {
 
 
                 std::cout << finish_line;
-
-                // LOG(INFO) << "3";
-
-
 
                 // only update the canvas if gesture is detected
                 if (!cc->Inputs().Tag(DRAW_COORDS_TAG).IsEmpty()) {
@@ -163,8 +157,6 @@ namespace mediapipe {
                     }
                 }
 
-                // LOG(INFO) << "4";
-
                 // apply canvas to the image and send
                 auto output_frame = absl::make_unique<cv::Mat>(formats::MatView(&substrate_packet));
                 output_frame->setTo(this->color, this->canvas);
@@ -175,9 +167,7 @@ namespace mediapipe {
                     cv::Point p2 = cv::Point(line_preview_endpoint.value().first, line_preview_endpoint.value().second);
                     cv::line(*output_frame, p1, p2, this->color, this->dot_width);
                 }
-                
-                // LOG(INFO) << "5";
-                
+
                 cc->Outputs().Tag(DRAWN_FRAME_TAG).Add(output_frame.release(), cc->InputTimestamp());
                 return absl::OkStatus();
             }
@@ -220,7 +210,6 @@ namespace mediapipe {
                     return;
                 }
 
-                LOG(INFO) << "canvas calculator update\n";
 
                 if (coords.first < this->dot_width / 2) {
                     coords.first = this->dot_width / 2;

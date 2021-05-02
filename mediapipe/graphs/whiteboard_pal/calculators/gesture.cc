@@ -40,7 +40,6 @@ namespace mediapipe {
                 const auto &landmark_vec = cc->Inputs().Tag(LANDMARKS_TAG).Get<std::vector<NormalizedLandmarkList,
                                                                         std::allocator<NormalizedLandmarkList>>>();
                 const auto landmark_list = landmark_vec[0];
-                // LOG(INFO) << "got landmark list" << "\n";
 
                 //get finger coordinates
                 //index finger
@@ -50,24 +49,30 @@ namespace mediapipe {
                 //thumb
                 float thumb_x = landmark_list.landmark(4).x();
                 float thumb_y = landmark_list.landmark(4).y();
+                float thumb_knuckle_x = landmark_list.landmark(2).x();
+                float thumb_knuckle_y = landmark_list.landmark(2).y();
                 //middle finger
                 float middle_x = landmark_list.landmark(12).x();
                 float middle_y = landmark_list.landmark(12).y();
                 float knuckle_x = landmark_list.landmark(9).x();
                 float knuckle_y = landmark_list.landmark(9).y();
+                float middle_pip_x = landmark_list.landmark(10).x();
+                float middle_pip_y = landmark_list.landmark(10).y();
                 //ring and pinky
                 float ring_y = landmark_list.landmark(16).y();
                 float pinky_y = landmark_list.landmark(20).y();
 
-                // LOG(INFO) << "a";
-
                 float key_x = std::min(knuckle_x, middle_x);
+                float key_y = (key_x == knuckle_x) ? knuckle_y:middle_y;
 
                 bool clenched = (pinky_y > knuckle_y) && (middle_y > knuckle_y) && (pinky_y > knuckle_y);
+                bool is_gesture = (get_dist(middle_pip_x, middle_pip_y, thumb_x, thumb_y) > get_dist(index_x, index_y, knuckle_x, knuckle_y)/1.7f) && \
+                  clenched && (index_dip > index_y);
+                /*
                 bool is_gesture = (std::abs(key_x - thumb_x) > std::abs(index_y - knuckle_y)/1.7f) && \
                   clenched && (index_dip > index_y);
-
-                // LOG(INFO) << "b";
+                */
+                //LOG(INFO) << "b";
 
                 auto coords = absl::make_unique<std::pair<float, float>>();
                 auto has_gesture = absl::make_unique<bool>();
@@ -75,8 +80,6 @@ namespace mediapipe {
                 coords->first = index_x;
                 coords->second = index_y;
                 *has_gesture = is_gesture;
-
-                // LOG(INFO) << "c";
 
                 cc->Outputs().Tag(COORDS_TAG).Add(coords.release(), cc->InputTimestamp()); //need to potentially turn into floats
                 cc->Outputs().Tag(HAS_GESTURE_TAG).Add(has_gesture.release(), cc->InputTimestamp());
