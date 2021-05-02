@@ -68,20 +68,26 @@ namespace mediapipe {
                   clenched && (index_dip > index_y);
 
                 // LOG(INFO) << "b";
-                
+
                 auto coords = absl::make_unique<std::pair<float, float>>();
                 auto has_gesture = absl::make_unique<bool>();
 
                 coords->first = index_x;
                 coords->second = index_y;
                 *has_gesture = is_gesture;
-                
+
                 // LOG(INFO) << "c";
 
                 cc->Outputs().Tag(COORDS_TAG).Add(coords.release(), cc->InputTimestamp()); //need to potentially turn into floats
                 cc->Outputs().Tag(HAS_GESTURE_TAG).Add(has_gesture.release(), cc->InputTimestamp());
                 return absl::OkStatus();
             }
+
+        private:
+          float get_dist(float a_x, float a_y, float b_x, float b_y){
+              float dist = std::pow(a_x - b_x, 2) + pow(a_y - b_y, 2);
+              return std::sqrt(dist);
+          }
     };
     REGISTER_CALCULATOR(WhiteboardPalGestureDetectionCalculator);
 }
